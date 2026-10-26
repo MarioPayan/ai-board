@@ -1,0 +1,9 @@
+{"ts":"2026-10-26T13:10:00-05:00","event":"start","id":"a1","name":"reviewer: load.go","expect_min":20}
+{"ts":"2026-10-26T13:12:00-05:00","event":"start","id":"a2","name":"reviewer: render.go","expect_min":60}
+{"ts":"2026-10-26T13:14:00-05:00","event":"start","id":"a3","name":"reviewer: tui.go"}
+{"ts":"2026-10-26T13:20:00-05:00","event":"start","id":"a4","name":"reviewer: charts.go","expect_min":30}
+{"ts":"2026-10-26T13:25:00-05:00","event":"start","id":"a5","name":"reviewer: write.go"}
+{"ts":"2026-10-26T13:30:00-05:00","event":"start","id":"a6","name":"reviewer: main.go","expect_min":45}
+{"ts":"2026-10-26T13:35:00-05:00","event":"start","id":"a7","name":"codex: second opinion"}
+{"ts":"2026-10-26T13:50:00-05:00","event":"stop","id":"a7","ok":false}
+{"ts":"2026-10-26T13:40:00-05:00","event":"start","id":"a8","name":"gemini: second opinion","expect_min":30}

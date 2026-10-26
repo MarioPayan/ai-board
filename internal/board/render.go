@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"sort"
+
 	"github.com/charmbracelet/glamour"
 	gstyles "github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/lipgloss"
@@ -31,6 +33,7 @@ type Renderer struct {
 type Options struct {
 	Expand    bool // d, --expand: list every finished step instead of the collapsed summary
 	AllChecks bool // c, --checks: list passing checks too, not only failing ones
+	AllAgents bool // a, --agents: list every agent (in the body when more than agentsShown)
 }
 
 // Colours are ANSI 16-colour indices so the terminal theme decides the shade.
@@ -108,7 +111,9 @@ func (r *Renderer) Render(s *Snapshot, width int, now time.Time) Frame {
 	if s.BoardErr != nil {
 		top = append(top, r.errLine(s.BoardErr.Error(), width))
 	}
-	top = append(top, r.agents(s, width, now)...)
+	if !r.agentsInBody(s) {
+		top = append(top, r.agents(s, width, now, false)...)
+	}
 
 	var body []string
 	var anchors []int
@@ -118,6 +123,11 @@ func (r *Renderer) Render(s *Snapshot, width int, now time.Time) Frame {
 		if len(body) > 0 {
 			body = append(body, "")
 		}
+	}
+	if r.agentsInBody(s) {
+		anchors = append(anchors, len(body))
+		body = append(body, r.heading("🤖", "Agents", width))
+		body = append(body, r.agents(s, width, now, true)...)
 	}
 	if len(s.Board.Steps) > 0 {
 		gap()
@@ -261,42 +271,108 @@ func (r *Renderer) pending(s *Snapshot, width int) []string {
 	return lines
 }
 
-func (r *Renderer) agents(s *Snapshot, width int, now time.Time) []string {
+// agentsShown is how many agents the fixed area lists before the rest
+// collapse into one `🤖 +N more` line.
+const agentsShown = 3
+
+func agentElapsed(a Agent, now time.Time) time.Duration {
+	if a.Started.IsZero() {
+		return 0
+	}
+	return now.Sub(a.Started)
+}
+
+// agentOver reports whether a running agent has passed its expected time.
+func agentOver(a Agent, now time.Time) bool {
+	return !a.Failed && a.ExpectMin > 0 && agentElapsed(a, now) > time.Duration(a.ExpectMin*float64(time.Minute))
+}
+
+// sortAgents returns the agents failed first, then over their expected
+// time, then by elapsed time, longest first; ties keep file order.
+func sortAgents(in []Agent, now time.Time) []Agent {
+	out := append([]Agent(nil), in...)
+	rank := func(a Agent) int {
+		switch {
+		case a.Failed:
+			return 0
+		case agentOver(a, now):
+			return 1
+		}
+		return 2
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if ri, rj := rank(out[i]), rank(out[j]); ri != rj {
+			return ri < rj
+		}
+		return agentElapsed(out[i], now) > agentElapsed(out[j], now)
+	})
+	return out
+}
+
+// agentsInBody reports whether the agent list moves from the fixed area
+// into the scrolling body: only when expanded and it would not fit.
+func (r *Renderer) agentsInBody(s *Snapshot) bool {
+	return r.AllAgents && len(s.Agents) > agentsShown
+}
+
+// agents renders the sorted agent list: every agent when all is set,
+// otherwise the first agentsShown and a `🤖 +N more (M over)` line for the
+// rest, M counting the hidden ones over their expected time.
+func (r *Renderer) agents(s *Snapshot, width int, now time.Time, all bool) []string {
+	agents := sortAgents(s.Agents, now)
+	var hidden []Agent
+	if !all && len(agents) > agentsShown {
+		agents, hidden = agents[:agentsShown], agents[agentsShown:]
+	}
 	var lines []string
-	for _, a := range s.Agents {
-		var marker, right string
-		if a.Failed {
-			marker = "🔴"
-			right = r.st.err.Render("failed")
-			if !a.Stopped.IsZero() {
-				right += " " + a.Stopped.Format("15:04")
-			}
-		} else {
-			marker = "🤖"
-			el := now.Sub(a.Started)
-			if a.Started.IsZero() {
-				el = 0
-			}
-			right = fmtDur(el)
-			if a.ExpectMin > 0 {
-				exp := time.Duration(a.ExpectMin * float64(time.Minute))
-				frac := float64(el) / float64(exp)
-				bs := r.st.bar
-				if frac > 1 {
-					bs = r.st.barOver
-				}
-				right = bs.Render(meter(frac, 10)) + " " + fmtDur(el) + "/" + fmtDur(exp)
-				if frac > 1 {
-					right += " " + r.st.err.Render("over")
-				}
+	for _, a := range agents {
+		lines = append(lines, r.agentLine(a, width, now))
+	}
+	if len(hidden) > 0 {
+		over := 0
+		for _, a := range hidden {
+			if agentOver(a, now) {
+				over++
 			}
 		}
-		lines = append(lines, row(marker+" "+a.Name, right, width))
+		l := fmt.Sprintf("🤖 +%d more", len(hidden))
+		if over > 0 {
+			l += fmt.Sprintf(" (%d over)", over)
+		}
+		lines = append(lines, r.st.dim.Render(trunc(l, width)))
 	}
 	for _, e := range s.AgentErrs {
 		lines = append(lines, r.errLine(e, width))
 	}
 	return lines
+}
+
+func (r *Renderer) agentLine(a Agent, width int, now time.Time) string {
+	var marker, right string
+	if a.Failed {
+		marker = "🔴"
+		right = r.st.err.Render("failed")
+		if !a.Stopped.IsZero() {
+			right += " " + a.Stopped.Format("15:04")
+		}
+	} else {
+		marker = "🤖"
+		el := agentElapsed(a, now)
+		right = fmtDur(el)
+		if a.ExpectMin > 0 {
+			exp := time.Duration(a.ExpectMin * float64(time.Minute))
+			frac := float64(el) / float64(exp)
+			bs := r.st.bar
+			if frac > 1 {
+				bs = r.st.barOver
+			}
+			right = bs.Render(meter(frac, 10)) + " " + fmtDur(el) + "/" + fmtDur(exp)
+			if frac > 1 {
+				right += " " + r.st.err.Render("over")
+			}
+		}
+	}
+	return row(marker+" "+a.Name, right, width)
 }
 
 // Markers are two cells wide so step text lines up after emoji markers.

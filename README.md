@@ -17,7 +17,7 @@ board                      # watch the newest board in ~/.claude/boards
 board <session-id>         # watch one session's board
 board path/to/board-dir    # watch any board directory
 
-board --once --width 80 [--now 2026-10-26T12:00:00-05:00] [--expand] [--checks] <id-or-dir>   # one uncolored frame
+board --once --width 80 [--now 2026-10-26T12:00:00-05:00] [--expand] [--checks] [--agents] <id-or-dir>   # one uncolored frame
 
 board log [--kind commit|note|link] <text>     # append to $CLAUDE_CODE_SESSION_ID's log
 board agent start <id> <name> [--expect MIN]
@@ -25,7 +25,7 @@ board agent stop <id> [--failed]
 board hook                                     # Claude Code hook: reads the payload on stdin
 ```
 
-Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between sections, `l` toggles the full log, `d` expands or collapses finished steps, `c` lists every check or only the failing ones, `q` quits. The footer line lists them.
+Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between sections, `l` toggles the full log, `d` expands or collapses finished steps, `a` lists every agent or the first three, `c` lists every check or only the failing ones, `q` quits. The footer line lists them.
 
 `board hook` handles `SubagentStart`, `SubagentStop` and `PostToolUse` (Bash `git commit`). It only writes into a board directory that already exists and always exits 0.
 

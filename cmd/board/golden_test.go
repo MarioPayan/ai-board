@@ -22,7 +22,9 @@ type goldenCase struct {
 var cases = []goldenCase{
 	{"disk-cleanup", "disk-cleanup", "2026-10-26T11:58:00-05:00", 3 * time.Minute, nil}, // empty pending
 	{"agents-demo", "agents-demo", "2026-10-26T14:00:00-05:00", 3 * time.Minute, nil},
-	{"done-heavy", "done-heavy", "2026-10-26T10:28:00-05:00", 3 * time.Minute, nil}, // >3 finished: collapsed
+	{"agents-many", "agents-many", "2026-10-26T14:00:00-05:00", 3 * time.Minute, nil},                      // 8 agents: 3 shown, +5 more
+	{"agents-many-all", "agents-many", "2026-10-26T14:00:00-05:00", 3 * time.Minute, []string{"--agents"}}, // every agent, in the body
+	{"done-heavy", "done-heavy", "2026-10-26T10:28:00-05:00", 3 * time.Minute, nil},                        // >3 finished: collapsed
 	{"done-heavy-expand", "done-heavy", "2026-10-26T10:28:00-05:00", 3 * time.Minute, []string{"--expand"}},
 	{"done-heavy-stale", "done-heavy", "2026-10-26T10:28:00-05:00", 25 * time.Minute, nil}, // working, no write for 25m
 	{"all-done", "all-done", "2026-10-26T09:00:00-05:00", 3 * time.Minute, nil},            // status done

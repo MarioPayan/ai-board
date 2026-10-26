@@ -1,0 +1,9 @@
+{
+  "title": "Fan-out review",
+  "status": { "state": "working", "text": "Agents reviewing" },
+  "steps": [
+    { "text": "Split the diff by package", "state": "done", "started": "2026-10-26T13:00:00-05:00", "ended": "2026-10-26T13:10:00-05:00" },
+    { "text": "Review every package in parallel", "state": "external", "note": "8 subagents", "started": "2026-10-26T13:10:00-05:00" },
+    { "text": "Merge the findings", "state": "todo" }
+  ]
+}

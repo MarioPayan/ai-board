@@ -108,20 +108,21 @@ Fixed area, top to bottom:
 1. **Header line 1**: the title on the left; on the right, dimmed, `⏱ <total elapsed> · ↻ <updated ago>`. Total elapsed runs from the first step's `started` (to the last `ended` once the status is `done`); `updated` is the newest mtime in the directory. When the status is `working` and that mtime is more than 10 minutes old, the `↻` part becomes a red `⚠ stale <ago>`. A part with no data is omitted.
 2. **Header line 2**: status emoji, status text, a 10-cell progress bar and `done/total` (done and skipped count as done). When the status is `done`, the line is a green band reading `🟢 <status text>` with the bar full.
 3. **Pending**: one line per item, marked with a yellow `┃` bar and `📥`, the item in bold and its link dimmed after it. No line at all when there is nothing pending.
-4. **Agents**: one line per running agent (`🤖`) or failed agent (`🔴`). Omitted when there are none.
+4. **Agents**: one line per running agent (`🤖`) or failed agent (`🔴`), sorted failed first, then those over their expected time, then by elapsed time, longest first. At most three are listed; the rest collapse into one dim line, `🤖 +<N> more (<M> over)`, where M counts the hidden agents over their expected time and `(<M> over)` is omitted when it is zero. `a` lists every agent in the live viewer, and `--agents` does so with `--once`; when there are more than three, the full list moves out of the fixed area into the top of the scrolling body under its own `🤖 Agents` heading, so it can never push the plan off screen. Omitted when there are none.
 
-Scrolling body, top to bottom; each heading is a bold title followed by a dim rule, and a block with nothing to show is omitted. One blank line separates the fixed area from the body and each top-level block (Plan, Details, Log) from the next; a subsection title sits directly on its body, with no blank line:
+Scrolling body, top to bottom; each heading is a bold title followed by a dim rule, and a block with nothing to show is omitted. One blank line separates the fixed area from the body and each top-level block (Agents, Plan, Details, Log) from the next; a subsection title sits directly on its body, with no blank line:
 
-5. **📋 Plan**: every step as `<marker> <text> — <note>`, the note coloured by state (waiting yellow, failed red, external magenta, others dim). The right column means one thing per state: done and skipped show their duration (`ended - started`, blank when either is missing); active shows `⏱ <elapsed>`; other states show nothing. The active step's marker is `▶` in an accent colour and, in the live viewer, its whole row has a subtle background. When a line is too long the note is truncated first (down to 6 cells), then the text (down to 20 cells); if it still does not fit, the note is dropped.
+5. **🤖 Agents**: only when every agent is listed (`a`, `--agents`) and there are more than three; see 4.
+6. **📋 Plan**: every step as `<marker> <text> — <note>`, the note coloured by state (waiting yellow, failed red, external magenta, others dim). The right column means one thing per state: done and skipped show their duration (`ended - started`, blank when either is missing); active shows `⏱ <elapsed>`; other states show nothing. The active step's marker is `▶` in an accent colour and, in the live viewer, its whole row has a subtle background. When a line is too long the note is truncated first (down to 6 cells), then the text (down to 20 cells); if it still does not fit, the note is dropped.
    When more than three steps are done or skipped, they collapse into one line, `✔ <N> · last: <text of the most recently ended one>` with that step's duration on the right, placed where the first finished step was. `d` toggles this in the live viewer; `--once` renders collapsed unless `--expand` is given.
-6. **🔎 Details**: every file in `sections/`, in order, each under its own title as a bold subheading.
-7. **📜 Log**: the five newest entries.
+7. **🔎 Details**: every file in `sections/`, in order, each under its own title as a bold subheading.
+8. **📜 Log**: the five newest entries.
 
 Live viewer only: a dim footer line, `↓ <N> · ⇥ sections · l log · d done · q`, where `↓ <N>` (lines below the viewport) appears only when the body scrolls.
 
-Header, pending and agents stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
+Header, pending and agents (unless listed in the body, see 4) stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
 
-Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between Plan, each Details subsection and Log, `l` toggles a full-screen log, `d` expands or collapses finished steps, `c` lists every check or only the failing ones, `q` quits.
+Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between Agents (when in the body), Plan, each Details subsection and Log, `l` toggles a full-screen log, `d` expands or collapses finished steps, `a` lists every agent or the first three, `c` lists every check or only the failing ones, `q` quits.
 
 The viewer sets the terminal title to `board: <session-id>`; the opener script finds an existing pane by that title.
 
@@ -129,7 +130,7 @@ The viewer sets the terminal title to `board: <session-id>`; the opener script f
 
 ```
 board [<session-id>]             watch and render (default: newest board directory by mtime)
-board --once [--width N] [--expand] [--checks] [<id>]
+board --once [--width N] [--expand] [--checks] [--agents] [<id>]
                                  render a single frame to stdout without color and exit
 board log [--kind K] <text>      append to log.jsonl of $CLAUDE_CODE_SESSION_ID
 board agent start <id> <name> [--expect MIN]
@@ -145,4 +146,4 @@ board hook                       read a Claude Code hook payload on stdin and ap
 
 It uses the payload's `session_id` to pick the directory. It never fails the hook: on any error it exits 0 and writes nothing. Unknown events are ignored.
 
-`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests; `--expand` lists every finished step instead of the collapsed summary; `--checks` lists passing checks too.
+`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests; `--expand` lists every finished step instead of the collapsed summary; `--checks` lists passing checks too; `--agents` lists every agent.

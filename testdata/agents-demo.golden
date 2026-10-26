@@ -1,9 +1,9 @@
 Board TUI                                                     ⏱ 1h00m · ↻ 3m ago
 🟡 Esperando tu OK  ███░░░░░░░ 2/6
 ┃ 📥 Aprobar el layout  https://claude.ai/artifact/demo
+🔴 codex review                                                     failed 13:40
 🤖 repo-worker: TUI                                      ██████████ 40m/30m over
 🤖 Explore: hooks (retry)                                                    10m
-🔴 codex review                                                     failed 13:40
 
 📋 Plan ────────────────────────────────────────────────────────────────────────
 ✔  Escribir SPEC.md                                                          15m

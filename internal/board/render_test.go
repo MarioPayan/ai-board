@@ -1,6 +1,7 @@
 package board
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -224,5 +225,76 @@ func TestChecksSummary(t *testing.T) {
 	}
 	if got := r.checks(pass, 60); len(got) != 3 {
 		t.Errorf("all checks, all pass: %q", got)
+	}
+}
+
+func TestSortAgents(t *testing.T) {
+	now := time.Date(2026, 10, 26, 14, 0, 0, 0, time.UTC)
+	at := func(min int) time.Time { return now.Add(-time.Duration(min) * time.Minute) }
+	in := []Agent{
+		{ID: "short", Started: at(5)},
+		{ID: "long", Started: at(50)},
+		{ID: "over-small", Started: at(25), ExpectMin: 20},
+		{ID: "failed-new", Started: at(2), Failed: true},
+		{ID: "within", Started: at(40), ExpectMin: 60},
+		{ID: "over-big", Started: at(45), ExpectMin: 10},
+		{ID: "failed-old", Started: at(30), Failed: true},
+	}
+	var got []string
+	for _, a := range sortAgents(in, now) {
+		got = append(got, a.ID)
+	}
+	want := "failed-old failed-new over-big over-small long within short"
+	if strings.Join(got, " ") != want {
+		t.Errorf("sortAgents = %v, want %s", got, want)
+	}
+	if in[0].ID != "short" {
+		t.Error("sortAgents must not reorder its input")
+	}
+}
+
+func TestAgentsCapped(t *testing.T) {
+	now := time.Date(2026, 10, 26, 14, 0, 0, 0, time.UTC)
+	at := func(min int) time.Time { return now.Add(-time.Duration(min) * time.Minute) }
+	r := &Renderer{}
+	r.init()
+	mk := func(n, failed, over int) *Snapshot {
+		s := &Snapshot{}
+		for i := 0; i < n; i++ {
+			a := Agent{ID: fmt.Sprint(i), Name: fmt.Sprintf("agent %d", i), Started: at(10 + i)}
+			switch {
+			case i < failed:
+				a.Failed = true
+			case i < failed+over:
+				a.ExpectMin = 5
+			}
+			s.Agents = append(s.Agents, a)
+		}
+		return s
+	}
+	cases := []struct {
+		n, failed, over int
+		all             bool
+		lines           int
+		summary         string
+	}{
+		{3, 0, 0, false, 3, ""},                   // fits: no summary
+		{8, 1, 2, false, 4, "🤖 +5 more"},          // over ones are shown, none hidden
+		{6, 2, 3, false, 4, "🤖 +3 more (2 over)"}, // 2 over pushed below the cut
+		{8, 1, 2, true, 8, ""},                    // all
+	}
+	for _, c := range cases {
+		got := r.agents(mk(c.n, c.failed, c.over), 80, now, c.all)
+		if len(got) != c.lines {
+			t.Errorf("%+v: %d lines, want %d:\n%s", c, len(got), c.lines, strings.Join(got, "\n"))
+			continue
+		}
+		last := got[len(got)-1]
+		if c.summary != "" && last != c.summary {
+			t.Errorf("%+v: summary %q, want %q", c, last, c.summary)
+		}
+		if c.summary == "" && strings.Contains(last, "more") {
+			t.Errorf("%+v: unexpected summary %q", c, last)
+		}
 	}
 }

@@ -163,6 +163,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.r.AllChecks = !m.r.AllChecks
 			m.layout()
 			return m, nil
+		case "a":
+			m.r.AllAgents = !m.r.AllAgents
+			m.layout()
+			return m, nil
 		case "tab":
 			for _, a := range m.anchors {
 				if a > m.vp.YOffset {
