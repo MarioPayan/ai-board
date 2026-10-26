@@ -1,6 +1,6 @@
 # board
 
-A read-only terminal viewer for Claude Code session boards. Claude and hooks write small files into `~/.claude/boards/<session-id>/`; `board` watches that directory and renders the plan, running subagents, pending items, sections (Markdown, charts, tables) and a log.
+A read-only terminal viewer for Claude Code session boards. Claude and hooks write small files into `~/.claude/boards/<session-id>/`; `board` watches that directory and renders what needs Mario (pending items) and running subagents at the top, then the plan, the sections (Markdown, charts, tables) under Details, and a log.
 
 The file formats, layout, keys and CLI are defined in [SPEC.md](SPEC.md).
 
@@ -17,7 +17,7 @@ board                      # watch the newest board in ~/.claude/boards
 board <session-id>         # watch one session's board
 board path/to/board-dir    # watch any board directory
 
-board --once --width 80 [--now 2026-10-26T12:00:00-05:00] <id-or-dir>   # one uncolored frame
+board --once --width 80 [--now 2026-10-26T12:00:00-05:00] [--expand] <id-or-dir>   # one uncolored frame
 
 board log [--kind commit|note|link] <text>     # append to $CLAUDE_CODE_SESSION_ID's log
 board agent start <id> <name> [--expect MIN]
@@ -25,7 +25,7 @@ board agent stop <id> [--failed]
 board hook                                     # Claude Code hook: reads the payload on stdin
 ```
 
-Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between sections, `l` toggles the full log, `q` quits.
+Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between sections, `l` toggles the full log, `d` expands or collapses finished steps, `q` quits. The footer line lists them.
 
 `board hook` handles `SubagentStart`, `SubagentStop` and `PostToolUse` (Bash `git commit`). It only writes into a board directory that already exists and always exits 0.
 

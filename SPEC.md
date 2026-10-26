@@ -18,7 +18,7 @@ A read-only terminal viewer for Claude Code session boards. Claude and hooks wri
 
 Each file has one kind of writer. JSONL files are only appended to, never rewritten, so hooks and Claude never race on the same bytes. `board.json` and section files are replaced whole (write to a temp file, rename).
 
-Every file is optional. A missing directory renders a "waiting for <path>" screen; a missing file renders as empty; a file that fails to parse renders its error in place of its content, and the rest of the board still renders.
+Every file is optional. A missing directory renders a "⏳ waiting for <path>" screen; a missing file renders as empty; a file that fails to parse renders its error in place of its content, and the rest of the board still renders.
 
 ## board.json
 
@@ -38,9 +38,9 @@ Every file is optional. A missing directory renders a "waiting for <path>" scree
 
 - `status.json`, written only by the Stop hook, has the same shape as `status` plus a timestamp: `{"state":"working","text":"Awaiting CI","ts":"<RFC3339>"}`. The viewer shows whichever is newer: status.json when its `ts` is after board.json's file mtime, otherwise board.json `status`. A missing or broken status.json falls back to board.json `status`.
 - `status.state`: `done` 🟢, `working` 🔵, `waiting` 🟡 (on Mario), `blocked` 🔴. Same meaning as the response status line. `status.text` is 1–4 words.
-- `steps[].state`: `done` ✔, `active` ●, `waiting` (on Mario) 🟡, `external` (CI, a subagent, a deploy) 🟣, `failed` ✘, `todo` ○, `skipped` (shown like done, struck through). `note` is one clause shown after the step (what it waits on, why it failed, why skipped).
+- `steps[].state`: `done` ✔, `active` ▶, `waiting` (on Mario) 🟡, `external` (CI, a subagent, a deploy) 🟣, `failed` ✘, `todo` ○, `skipped` (shown like done, struck through). `note` is one clause shown inline after the step text (what it waits on, why it failed, why skipped).
 - `started` / `ended` are RFC 3339. The viewer derives times from them; writers never compute durations.
-- All steps stay in the list for the whole task. Done steps are dimmed, not removed.
+- All steps stay in the list for the whole task. The viewer collapses finished steps into one summary line when there are more than three (see Layout); writers never remove them.
 
 ## agents.jsonl
 
@@ -92,18 +92,27 @@ A cell is a string, a number, or `{ "v": number, "text": string }`. A `bar: true
 
 ## Layout
 
-Top to bottom:
+Labels are English; icons replace words where the meaning stays obvious. Colours are ANSI 16-colour indices, so the terminal theme picks the shades.
 
-1. **Header**: title; status emoji, status text, a 10-cell progress bar and `done/total` (done and skipped count as done); total elapsed since the first step's `started`; `updated <ago>` from the newest mtime in the directory.
-2. **Agents**: one line per running or failed agent. Omitted when there are none.
-3. **Plan**: every step with its marker, its text, and on the right the end time (done), elapsed time (active), or note.
-4. **Pending**: one line per item. When empty, a single dimmed `nothing pending` line.
-5. **Sections**, in order, each with its title as a rule.
-6. **Log**: the five newest entries.
+Fixed area, top to bottom:
 
-Header and agents stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
+1. **Header line 1**: the title on the left; on the right, dimmed, `⏱ <total elapsed> · ↻ <updated ago>`. Total elapsed runs from the first step's `started` (to the last `ended` once the status is `done`); `updated` is the newest mtime in the directory. When the status is `working` and that mtime is more than 10 minutes old, the `↻` part becomes a red `⚠ stale <ago>`. A part with no data is omitted.
+2. **Header line 2**: status emoji, status text, a 10-cell progress bar and `done/total` (done and skipped count as done). When the status is `done`, the line is a green band reading `🟢 <status text>` with the bar full.
+3. **Pending**: one line per item, marked with a yellow `┃` bar and `📥`, the item in bold and its link dimmed after it. No line at all when there is nothing pending.
+4. **Agents**: one line per running agent (`🤖`) or failed agent (`🔴`). Omitted when there are none.
 
-Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between sections, `l` toggles a full-screen log, `q` quits.
+Scrolling body, top to bottom; each heading is a bold title followed by a dim rule, and a block with nothing to show is omitted:
+
+5. **📋 Plan**: every step as `<marker> <text> — <note>`, the note coloured by state (waiting yellow, failed red, external magenta, others dim). The right column means one thing per state: done and skipped show their duration (`ended - started`, blank when either is missing); active shows `⏱ <elapsed>`; other states show nothing. The active step's marker is `▶` in an accent colour and, in the live viewer, its whole row has a subtle background. When a line is too long the note is truncated first (down to 6 cells), then the text (down to 20 cells); if it still does not fit, the note is dropped.
+   When more than three steps are done or skipped, they collapse into one line, `✔ <N> · last: <text of the most recently ended one>` with that step's duration on the right, placed where the first finished step was. `d` toggles this in the live viewer; `--once` renders collapsed unless `--expand` is given.
+6. **🔎 Details**: every file in `sections/`, in order, each under its own title as a bold subheading.
+7. **📜 Log**: the five newest entries.
+
+Live viewer only: a dim footer line, `↓ <N> · ⇥ sections · l log · d done · q`, where `↓ <N>` (lines below the viewport) appears only when the body scrolls.
+
+Header, pending and agents stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
+
+Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between Plan, each Details subsection and Log, `l` toggles a full-screen log, `d` expands or collapses finished steps, `q` quits.
 
 The viewer sets the terminal title to `board: <session-id>`; the opener script finds an existing pane by that title.
 
@@ -111,7 +120,8 @@ The viewer sets the terminal title to `board: <session-id>`; the opener script f
 
 ```
 board [<session-id>]             watch and render (default: newest board directory by mtime)
-board --once [--width N] [<id>]  render a single frame to stdout without color and exit
+board --once [--width N] [--expand] [<id>]
+                                 render a single frame to stdout without color and exit
 board log [--kind K] <text>      append to log.jsonl of $CLAUDE_CODE_SESSION_ID
 board agent start <id> <name> [--expect MIN]
 board agent stop <id> [--failed]
@@ -126,4 +136,4 @@ board hook                       read a Claude Code hook payload on stdin and ap
 
 It uses the payload's `session_id` to pick the directory. It never fails the hook: on any error it exits 0 and writes nothing. Unknown events are ignored.
 
-`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests.
+`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests; `--expand` lists every finished step instead of the collapsed summary.
