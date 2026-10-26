@@ -1,0 +1,26 @@
+Board visual pass                                             ⏱ 1h28m · ↻ 3m ago
+🔵 Rendering goldens  █████░░░░░ 5/10
+📋 Plan ────────────────────────────────────────────────────────────────────────
+✔  Read SPEC.md and README.md                                                 4m
+✔  Write failing unit tests                                                   9m
+✔  Prototype a tinted pending block — the left bar is enough
+✔  Move pending into the fixed area                                          27m
+✔  Collapse finished steps behind a summary line                             25m
+▶  Regenerate and read every golden file — four fixtures                   ⏱ 23m
+🟣 Check the live frame under script(1) — waiting on the 5 s OSC 11 probe
+🟡 Approve the new layout before it ships to every session board — Mario review…
+✘  Commit — pre-commit hook rejected gofmt
+○  Report back
+🔎 Details ─────────────────────────────────────────────────────────────────────
+Where
+  • Viewer: ~/repos/Kaze/board (main)
+  • Worktree: board-wt-visual on feat/visual
+Lines
+File       Lines                           Owner
+─────────  ─────                           ──────
+render.go    520 ████████████████████████  viewer
+charts.go    209 █████████▋                viewer
+tui.go       200 █████████▎                viewer
+📜 Log ─────────────────────────────────────────────────────────────────────────
+10:05 ◆ 5d6e7f8 feat: collapse finished steps
+09:13 ◆ 1a2b3c4 test: failing unit tests

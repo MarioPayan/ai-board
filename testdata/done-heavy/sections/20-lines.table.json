@@ -1,0 +1,8 @@
+{
+  "columns": [ { "name": "File" }, { "name": "Lines", "align": "right", "bar": true }, { "name": "Owner" } ],
+  "rows": [
+    [ "render.go", { "v": 520, "text": "520" }, "viewer" ],
+    [ "charts.go", { "v": 209, "text": "209" }, "viewer" ],
+    [ "tui.go", { "v": 200, "text": "200" }, "viewer" ]
+  ]
+}

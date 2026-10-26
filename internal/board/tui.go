@@ -1,6 +1,7 @@
 package board
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -125,7 +126,7 @@ func (m *model) layout() {
 		m.anchors = nil
 	}
 	m.vp.Width = m.w
-	m.vp.Height = max(1, m.h-lipgloss.Height(m.top))
+	m.vp.Height = max(1, m.h-lipgloss.Height(m.top)-1) // one line for the footer
 	m.vp.SetContent(body)
 }
 
@@ -152,6 +153,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "l":
 			m.showLog = !m.showLog
 			m.vp.GotoTop()
+			m.layout()
+			return m, nil
+		case "d":
+			m.r.Expand = !m.r.Expand
 			m.layout()
 			return m, nil
 		case "tab":
@@ -184,5 +189,15 @@ func (m *model) View() string {
 	if strings.TrimSpace(m.vp.View()) == "" && m.snap.Missing {
 		return m.top
 	}
-	return m.top + "\n" + m.vp.View()
+	return m.top + "\n" + m.vp.View() + "\n" + m.footer()
+}
+
+// footer is one dim line: how many lines are below the viewport (when it
+// scrolls) and the keys.
+func (m *model) footer() string {
+	keys := "⇥ sections · l log · d done · q"
+	if below := m.vp.TotalLineCount() - m.vp.YOffset - m.vp.Height; below > 0 {
+		keys = fmt.Sprintf("↓ %d · %s", below, keys)
+	}
+	return m.r.st.dim.Render(trunc(keys, m.w))
 }

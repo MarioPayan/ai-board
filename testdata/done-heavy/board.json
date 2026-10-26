@@ -1,0 +1,17 @@
+{
+  "title": "Board visual pass",
+  "status": { "state": "working", "text": "Rendering goldens" },
+  "steps": [
+    { "text": "Read SPEC.md and README.md", "state": "done", "started": "2026-10-26T09:00:00-05:00", "ended": "2026-10-26T09:04:00-05:00" },
+    { "text": "Write failing unit tests", "state": "done", "started": "2026-10-26T09:04:00-05:00", "ended": "2026-10-26T09:13:00-05:00" },
+    { "text": "Prototype a tinted pending block", "state": "skipped", "note": "the left bar is enough" },
+    { "text": "Move pending into the fixed area", "state": "done", "started": "2026-10-26T09:13:00-05:00", "ended": "2026-10-26T09:40:00-05:00" },
+    { "text": "Collapse finished steps behind a summary line", "state": "done", "started": "2026-10-26T09:40:00-05:00", "ended": "2026-10-26T10:05:00-05:00" },
+    { "text": "Regenerate and read every golden file", "state": "active", "started": "2026-10-26T10:05:00-05:00", "note": "four fixtures" },
+    { "text": "Check the live frame under script(1)", "state": "external", "note": "waiting on the 5 s OSC 11 probe" },
+    { "text": "Approve the new layout before it ships to every session board", "state": "waiting", "note": "Mario reviews the two pasted renders and the footer line" },
+    { "text": "Commit", "state": "failed", "note": "pre-commit hook rejected gofmt" },
+    { "text": "Report back", "state": "todo" }
+  ],
+  "pending": []
+}

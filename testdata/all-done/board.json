@@ -1,0 +1,11 @@
+{
+  "title": "Release 1.2",
+  "status": { "state": "done", "text": "Shipped" },
+  "steps": [
+    { "text": "Tag v1.2.0", "state": "done", "started": "2026-10-26T08:00:00-05:00", "ended": "2026-10-26T08:02:00-05:00" },
+    { "text": "Build binaries", "state": "done", "started": "2026-10-26T08:02:00-05:00", "ended": "2026-10-26T08:20:00-05:00" },
+    { "text": "Smoke test", "state": "done", "started": "2026-10-26T08:20:00-05:00", "ended": "2026-10-26T08:31:00-05:00" },
+    { "text": "Announce in the changelog", "state": "done", "started": "2026-10-26T08:31:00-05:00", "ended": "2026-10-26T08:35:00-05:00" }
+  ],
+  "pending": []
+}

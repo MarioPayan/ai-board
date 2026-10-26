@@ -11,10 +11,21 @@ import (
 
 var update = flag.Bool("update", false, "rewrite testdata/*.golden")
 
-// fixtures maps each fixture to the fixed clock it is rendered at.
-var fixtures = map[string]string{
-	"disk-cleanup": "2026-10-26T11:58:00-05:00",
-	"agents-demo":  "2026-10-26T14:00:00-05:00",
+// goldenCase renders fixture at a fixed clock, with every file's mtime set
+// age before it, into testdata/<name>.golden.
+type goldenCase struct {
+	name, fixture, now string
+	age                time.Duration
+	args               []string
+}
+
+var cases = []goldenCase{
+	{"disk-cleanup", "disk-cleanup", "2026-10-26T11:58:00-05:00", 3 * time.Minute, nil}, // empty pending
+	{"agents-demo", "agents-demo", "2026-10-26T14:00:00-05:00", 3 * time.Minute, nil},
+	{"done-heavy", "done-heavy", "2026-10-26T10:28:00-05:00", 3 * time.Minute, nil}, // >3 finished: collapsed
+	{"done-heavy-expand", "done-heavy", "2026-10-26T10:28:00-05:00", 3 * time.Minute, []string{"--expand"}},
+	{"done-heavy-stale", "done-heavy", "2026-10-26T10:28:00-05:00", 25 * time.Minute, nil}, // working, no write for 25m
+	{"all-done", "all-done", "2026-10-26T09:00:00-05:00", 3 * time.Minute, nil},            // status done
 }
 
 // copyFixture copies a fixture into a temp dir and pins every mtime to
@@ -47,18 +58,22 @@ func copyFixture(t *testing.T, src string, mtime time.Time) string {
 }
 
 func TestGolden(t *testing.T) {
-	for name, now := range fixtures {
-		t.Run(name, func(t *testing.T) {
-			clock, _ := time.Parse(time.RFC3339, now)
-			dir := copyFixture(t, filepath.Join("..", "..", "testdata", name), clock.Add(-3*time.Minute))
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			clock, err := time.Parse(time.RFC3339, c.now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dir := copyFixture(t, filepath.Join("..", "..", "testdata", c.fixture), clock.Add(-c.age))
 			var out bytes.Buffer
-			if err := cmdView([]string{"--once", "--width", "80", "--now", now, dir}, &out); err != nil {
+			args := append([]string{"--once", "--width", "80", "--now", c.now}, c.args...)
+			if err := cmdView(append(args, dir), &out); err != nil {
 				t.Fatal(err)
 			}
 			if bytes.Contains(out.Bytes(), []byte("\x1b")) {
 				t.Error("--once output contains escape sequences")
 			}
-			golden := filepath.Join("..", "..", "testdata", name+".golden")
+			golden := filepath.Join("..", "..", "testdata", c.name+".golden")
 			if *update {
 				if err := os.WriteFile(golden, out.Bytes(), 0o644); err != nil {
 					t.Fatal(err)
@@ -81,7 +96,7 @@ func TestMissingDir(t *testing.T) {
 	if err := cmdView([]string{"--once", dir}, &out); err != nil {
 		t.Fatal(err)
 	}
-	if want := "waiting for " + dir + "\n"; out.String() != want {
+	if want := "⏳ waiting for " + dir + "\n"; out.String() != want {
 		t.Errorf("got %q want %q", out.String(), want)
 	}
 }
