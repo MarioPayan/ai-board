@@ -67,7 +67,7 @@ func (r *Renderer) RenderHelp(width int) string {
 		lines = append(lines, r.st.bold.Render(title))
 	}
 	item := func(sym, text string) {
-		lines = append(lines, trunc(pad(sym, 4, false)+text, width))
+		lines = append(lines, trunc(pad(sym, 7, false)+text, width))
 	}
 	lines = append(lines, r.heading("❔", "Help", width))
 
