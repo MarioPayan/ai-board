@@ -177,7 +177,8 @@ func (r *Renderer) table(t *Table, width int) []string {
 		return t.Columns[i].Name, strings.Repeat(" ", bw)
 	})))
 	lines = append(lines, r.st.dim.Render(line(func(i int) (string, string) {
-		return strings.Repeat("─", ws[i]), strings.Repeat("─", bw)
+		// nothing under a bar: it has no header above it
+		return strings.Repeat("─", ws[i]), strings.Repeat(" ", bw)
 	})))
 	for _, row := range t.Rows {
 		lines = append(lines, line(func(i int) (string, string) {
