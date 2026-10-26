@@ -118,11 +118,16 @@ Scrolling body, top to bottom; each heading is a bold title followed by a dim ru
 7. **🔎 Details**: every file in `sections/`, in order, each under its own title as a bold subheading.
 8. **📜 Log**: the five newest entries.
 
-Live viewer only: a dim footer line, `↓ <N> · ⇥ sections · l log · d done · q`, where `↓ <N>` (lines below the viewport) appears only when the body scrolls.
+Live viewer only, below the body:
+
+- **Legend**: one dim line naming only the symbols currently on screen (in the fixed area and on the visible body lines), in this order: `▶ active · 🟡 on you · 🟣 external · ✘ failed · ○ todo · ✔ done · ⏱ elapsed · ↻ updated · ◆ commit · • note · ↗ link · 📥 pending · 🤖 agent · 🔴 failed/blocked · 🔵 working · 🟢 finished · ⚠ stale/error`. Symbols inside Markdown, charts and tables do not count. Entries that do not fit the width are dropped from the end and replaced by `…`. `--once --legend` appends it after a blank line, built from every symbol in the frame.
+- **Footer**: one dim line, `↓ <N> · ⇥ sections · d done · a agents · c checks · l log · ? help · q`. `↓ <N>` (lines below the viewport) appears only when the body scrolls. A key that would do nothing is left out: `⇥` with fewer than two jump targets, `d` with three finished steps or fewer, `a` with three agents or fewer, `c` when no checks section has a passing check to reveal.
+
+`?` replaces the body with a full-screen help (the fixed area, legend and footer stay): every step marker, status emoji, header, pending and agent icon, checks and log markers, what each colour means, and every key. `?` again, or `l`, leaves it.
 
 Header, pending and agents (unless listed in the body, see 4) stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
 
-Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between Agents (when in the body), Plan, each Details subsection and Log, `l` toggles a full-screen log, `d` expands or collapses finished steps, `a` lists every agent or the first three, `c` lists every check or only the failing ones, `q` quits.
+Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between Agents (when in the body), Plan, each Details subsection and Log, `l` toggles a full-screen log, `?` toggles the full-screen help, `d` expands or collapses finished steps, `a` lists every agent or the first three, `c` lists every check or only the failing ones, `q` quits.
 
 The viewer sets the terminal title to `board: <session-id>`; the opener script finds an existing pane by that title.
 
@@ -130,7 +135,7 @@ The viewer sets the terminal title to `board: <session-id>`; the opener script f
 
 ```
 board [<session-id>]             watch and render (default: newest board directory by mtime)
-board --once [--width N] [--expand] [--checks] [--agents] [<id>]
+board --once [--width N] [--expand] [--checks] [--agents] [--legend] [<id>]
                                  render a single frame to stdout without color and exit
 board log [--kind K] <text>      append to log.jsonl of $CLAUDE_CODE_SESSION_ID
 board agent start <id> <name> [--expect MIN]
@@ -146,4 +151,4 @@ board hook                       read a Claude Code hook payload on stdin and ap
 
 It uses the payload's `session_id` to pick the directory. It never fails the hook: on any error it exits 0 and writes nothing. Unknown events are ignored.
 
-`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests; `--expand` lists every finished step instead of the collapsed summary; `--checks` lists passing checks too; `--agents` lists every agent.
+`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests; `--expand` lists every finished step instead of the collapsed summary; `--checks` lists passing checks too; `--agents` lists every agent; `--legend` ends the frame with the legend line.

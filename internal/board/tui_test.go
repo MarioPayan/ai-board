@@ -20,7 +20,7 @@ func TestModelDoneToggleAndFooter(t *testing.T) {
 		t.Errorf("view is %d lines, want the window's 12:\n%s", len(lines), view)
 	}
 	foot := lines[len(lines)-1]
-	if !strings.HasPrefix(foot, "↓ ") || !strings.HasSuffix(foot, "⇥ sections · l log · d done · q") {
+	if !strings.HasPrefix(foot, "↓ ") || !strings.HasSuffix(foot, "⇥ sections · d done · l log · ? help · q") {
 		t.Errorf("footer = %q", foot)
 	}
 	if !strings.Contains(view, "· last:") {
@@ -35,7 +35,7 @@ func TestModelDoneToggleAndFooter(t *testing.T) {
 
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 60}) // everything fits: no ↓
 	lines = strings.Split(ansi.Strip(m.View()), "\n")
-	if foot := lines[len(lines)-1]; foot != "⇥ sections · l log · d done · q" {
+	if foot := lines[len(lines)-1]; foot != "⇥ sections · d done · l log · ? help · q" {
 		t.Errorf("footer without scroll = %q", foot)
 	}
 }

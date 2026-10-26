@@ -26,8 +26,11 @@ type model struct {
 	vp        viewport.Model
 	w, h      int
 	showLog   bool
+	showHelp  bool
 	anchors   []int
 	top       string
+	topSyms   []string   // legend symbols in top
+	bodySyms  [][]string // legend symbols on each viewport line
 
 	watcher *fsnotify.Watcher
 	watched map[string]bool
@@ -119,14 +122,17 @@ func (m *model) layout() {
 	}
 	now := time.Now()
 	f := m.r.Render(m.snap, m.w, now)
-	m.top, m.anchors = f.Top, f.Anchors
+	m.top, m.anchors, m.topSyms, m.bodySyms = f.Top, f.Anchors, f.TopSyms, f.BodySyms
 	body := f.Body
-	if m.showLog {
-		body = m.r.RenderLog(m.snap, m.w)
+	switch {
+	case m.showHelp:
+		body, m.anchors, m.bodySyms = m.r.RenderHelp(m.w), nil, nil
+	case m.showLog:
+		body, m.bodySyms = m.r.RenderLog(m.snap, m.w)
 		m.anchors = nil
 	}
 	m.vp.Width = m.w
-	m.vp.Height = max(1, m.h-lipgloss.Height(m.top)-1) // one line for the footer
+	m.vp.Height = max(1, m.h-lipgloss.Height(m.top)-2) // legend and footer lines
 	m.vp.SetContent(body)
 }
 
@@ -151,7 +157,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "l":
-			m.showLog = !m.showLog
+			m.showLog, m.showHelp = !m.showLog, false
+			m.vp.GotoTop()
+			m.layout()
+			return m, nil
+		case "?":
+			m.showHelp, m.showLog = !m.showHelp, false
 			m.vp.GotoTop()
 			m.layout()
 			return m, nil
@@ -197,15 +208,65 @@ func (m *model) View() string {
 	if strings.TrimSpace(m.vp.View()) == "" && m.snap.Missing {
 		return m.top
 	}
-	return m.top + "\n" + m.vp.View() + "\n" + m.footer()
+	return m.top + "\n" + m.vp.View() + "\n" + m.legend() + "\n" + m.footer()
+}
+
+// legend is one dim line naming the symbols on screen: in the fixed area and
+// on the viewport lines currently shown.
+func (m *model) legend() string {
+	syms := append([]string(nil), m.topSyms...)
+	for i := m.vp.YOffset; i < len(m.bodySyms) && i < m.vp.YOffset+m.vp.Height; i++ {
+		syms = append(syms, m.bodySyms[i]...)
+	}
+	return m.r.LegendLine(syms, m.w)
 }
 
 // footer is one dim line: how many lines are below the viewport (when it
-// scrolls) and the keys.
+// scrolls) and the keys, leaving out those that would do nothing.
 func (m *model) footer() string {
-	keys := "⇥ sections · l log · d done · q"
-	if below := m.vp.TotalLineCount() - m.vp.YOffset - m.vp.Height; below > 0 {
-		keys = fmt.Sprintf("↓ %d · %s", below, keys)
+	var keys []string
+	if len(m.anchors) > 1 {
+		keys = append(keys, "⇥ sections")
 	}
-	return m.r.st.dim.Render(trunc(keys, m.w))
+	if finishedSteps(m.snap) > collapseAbove {
+		keys = append(keys, "d done")
+	}
+	if len(m.snap.Agents) > agentsShown {
+		keys = append(keys, "a agents")
+	}
+	if hasPassingCheck(m.snap) {
+		keys = append(keys, "c checks")
+	}
+	keys = append(keys, "l log", "? help", "q")
+	l := strings.Join(keys, " · ")
+	if below := m.vp.TotalLineCount() - m.vp.YOffset - m.vp.Height; below > 0 {
+		l = fmt.Sprintf("↓ %d · %s", below, l)
+	}
+	return m.r.st.dim.Render(trunc(l, m.w))
+}
+
+func finishedSteps(s *Snapshot) int {
+	n := 0
+	for _, st := range s.Board.Steps {
+		if finished(st) {
+			n++
+		}
+	}
+	return n
+}
+
+// hasPassingCheck reports whether `c` would show anything more: a checks
+// section with a passing check, which the collapsed view hides.
+func hasPassingCheck(s *Snapshot) bool {
+	for _, sec := range s.Sections {
+		if sec.Checks == nil {
+			continue
+		}
+		for _, c := range sec.Checks.Checks {
+			if c.OK {
+				return true
+			}
+		}
+	}
+	return false
 }

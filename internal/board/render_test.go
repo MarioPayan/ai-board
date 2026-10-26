@@ -211,19 +211,19 @@ func TestChecksSummary(t *testing.T) {
 	fail := &Checks{Checks: []Check{{Name: "a", OK: true}, {Name: "b", OK: false, Detail: "boom"}, {Name: "c", OK: false}}}
 	r := &Renderer{}
 	r.init()
-	if got := r.checks(pass, 60); len(got) != 1 || got[0] != "✔ 2/2 checks" {
+	if got := r.checks(pass, 60).lines; len(got) != 1 || got[0] != "✔ 2/2 checks" {
 		t.Errorf("all pass: %q", got)
 	}
 	want := []string{"✘ 2/3 checks failed", "  ✘ b — boom", "  ✘ c"}
-	if got := r.checks(fail, 60); strings.Join(got, "\n") != strings.Join(want, "\n") {
+	if got := r.checks(fail, 60).lines; strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("some fail: %q, want %q", got, want)
 	}
 	r.AllChecks = true
 	want = []string{"✘ 2/3 checks failed", "  ✔ a", "  ✘ b — boom", "  ✘ c"}
-	if got := r.checks(fail, 60); strings.Join(got, "\n") != strings.Join(want, "\n") {
+	if got := r.checks(fail, 60).lines; strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("all checks: %q, want %q", got, want)
 	}
-	if got := r.checks(pass, 60); len(got) != 3 {
+	if got := r.checks(pass, 60).lines; len(got) != 3 {
 		t.Errorf("all checks, all pass: %q", got)
 	}
 }
@@ -284,7 +284,7 @@ func TestAgentsCapped(t *testing.T) {
 		{8, 1, 2, true, 8, ""},                    // all
 	}
 	for _, c := range cases {
-		got := r.agents(mk(c.n, c.failed, c.over), 80, now, c.all)
+		got := r.agents(mk(c.n, c.failed, c.over), 80, now, c.all).lines
 		if len(got) != c.lines {
 			t.Errorf("%+v: %d lines, want %d:\n%s", c, len(got), c.lines, strings.Join(got, "\n"))
 			continue

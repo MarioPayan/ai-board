@@ -24,7 +24,9 @@ var cases = []goldenCase{
 	{"agents-demo", "agents-demo", "2026-10-26T14:00:00-05:00", 3 * time.Minute, nil},
 	{"agents-many", "agents-many", "2026-10-26T14:00:00-05:00", 3 * time.Minute, nil},                      // 8 agents: 3 shown, +5 more
 	{"agents-many-all", "agents-many", "2026-10-26T14:00:00-05:00", 3 * time.Minute, []string{"--agents"}}, // every agent, in the body
-	{"done-heavy", "done-heavy", "2026-10-26T10:28:00-05:00", 3 * time.Minute, nil},                        // >3 finished: collapsed
+	{"agents-demo-legend", "agents-demo", "2026-10-26T14:00:00-05:00", 3 * time.Minute, []string{"--legend"}},
+	{"checks-fail-legend", "checks-fail", "2026-10-26T15:30:00-05:00", 3 * time.Minute, []string{"--legend"}},
+	{"done-heavy", "done-heavy", "2026-10-26T10:28:00-05:00", 3 * time.Minute, nil}, // >3 finished: collapsed
 	{"done-heavy-expand", "done-heavy", "2026-10-26T10:28:00-05:00", 3 * time.Minute, []string{"--expand"}},
 	{"done-heavy-stale", "done-heavy", "2026-10-26T10:28:00-05:00", 25 * time.Minute, nil}, // working, no write for 25m
 	{"all-done", "all-done", "2026-10-26T09:00:00-05:00", 3 * time.Minute, nil},            // status done

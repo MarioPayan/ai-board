@@ -34,6 +34,7 @@ type Options struct {
 	Expand    bool // d, --expand: list every finished step instead of the collapsed summary
 	AllChecks bool // c, --checks: list passing checks too, not only failing ones
 	AllAgents bool // a, --agents: list every agent (in the body when more than agentsShown)
+	Legend    bool // --legend: end a --once frame with the legend line
 }
 
 // Colours are ANSI 16-colour indices so the terminal theme decides the shade.
@@ -88,12 +89,39 @@ func (r *Renderer) init() {
 }
 
 // Frame is a rendered board: Top stays fixed, Body scrolls. Anchors are the
-// Body line numbers that tab/shift+tab jump between: Plan, each Details
-// subsection and Log.
+// Body line numbers that tab/shift+tab jump between: Agents (when in the
+// body), Plan, each Details subsection and Log. TopSyms and BodySyms are the
+// legend symbols drawn in Top and on each Body line, so the legend can name
+// only what is on screen.
 type Frame struct {
-	Top     string
-	Body    string
-	Anchors []int
+	Top      string
+	Body     string
+	Anchors  []int
+	TopSyms  []string
+	BodySyms [][]string
+}
+
+// block is rendered lines plus the legend symbols each one draws.
+type block struct {
+	lines []string
+	syms  [][]string
+}
+
+func (b *block) add(line string, syms ...string) {
+	b.lines = append(b.lines, line)
+	b.syms = append(b.syms, syms)
+}
+
+// addAll appends lines that draw no legend symbol (Markdown, charts, tables).
+func (b *block) addAll(lines []string) {
+	for _, l := range lines {
+		b.add(l)
+	}
+}
+
+func (b *block) cat(o block) {
+	b.lines = append(b.lines, o.lines...)
+	b.syms = append(b.syms, o.syms...)
 }
 
 // Render renders the snapshot at the given width and clock.
@@ -105,67 +133,73 @@ func (r *Renderer) Render(s *Snapshot, width int, now time.Time) Frame {
 	if s.Missing {
 		return Frame{Top: r.st.dim.Render("⏳ waiting for " + s.Dir)}
 	}
-	var top []string
-	top = append(top, r.header(s, width, now)...)
-	top = append(top, r.pending(s, width)...)
+	var top block
+	top.cat(r.header(s, width, now))
+	top.cat(r.pending(s, width))
 	if s.BoardErr != nil {
-		top = append(top, r.errLine(s.BoardErr.Error(), width))
+		top.add(r.errLine(s.BoardErr.Error(), width), "⚠")
 	}
 	if !r.agentsInBody(s) {
-		top = append(top, r.agents(s, width, now, false)...)
+		top.cat(r.agents(s, width, now, false))
 	}
 
-	var body []string
+	var body block
 	var anchors []int
 	// top-level blocks are separated by one blank line; a subsection title
 	// sits right on its body
-	gap := func() {
-		if len(body) > 0 {
-			body = append(body, "")
+	heading := func(icon, title string) {
+		if len(body.lines) > 0 {
+			body.add("")
 		}
+		anchors = append(anchors, len(body.lines))
+		body.add(r.heading(icon, title, width))
 	}
 	if r.agentsInBody(s) {
-		anchors = append(anchors, len(body))
-		body = append(body, r.heading("🤖", "Agents", width))
-		body = append(body, r.agents(s, width, now, true)...)
+		heading("🤖", "Agents")
+		body.cat(r.agents(s, width, now, true))
 	}
 	if len(s.Board.Steps) > 0 {
-		gap()
-		anchors = append(anchors, len(body))
-		body = append(body, r.heading("📋", "Plan", width))
-		body = append(body, r.plan(s, width, now)...)
+		heading("📋", "Plan")
+		body.cat(r.plan(s, width, now))
 	}
 	for i, sec := range s.Sections {
 		if i == 0 {
-			gap()
-			anchors = append(anchors, len(body))
-			body = append(body, r.heading("🔎", "Details", width))
+			heading("🔎", "Details")
 		} else {
-			anchors = append(anchors, len(body))
+			anchors = append(anchors, len(body.lines))
 		}
-		body = append(body, r.st.bold.Render(trunc(sec.Title, width)))
-		body = append(body, r.section(sec, width)...)
+		body.add(r.st.bold.Render(trunc(sec.Title, width)))
+		body.cat(r.section(sec, width))
 	}
-	if log := r.logLines(s, width, 5); len(log) > 0 {
-		gap()
-		anchors = append(anchors, len(body))
-		body = append(body, r.heading("📜", "Log", width))
-		body = append(body, log...)
+	if log := r.logLines(s, width, 5); len(log.lines) > 0 {
+		heading("📜", "Log")
+		body.cat(log)
 	}
-	if len(body) > 0 {
-		top = append(top, "") // a blank line between the fixed area and the body
+	if len(body.lines) > 0 {
+		top.add("") // a blank line between the fixed area and the body
 	}
-	return Frame{Top: strings.Join(top, "\n"), Body: strings.Join(body, "\n"), Anchors: anchors}
+	var topSyms []string
+	for _, ss := range top.syms {
+		topSyms = append(topSyms, ss...)
+	}
+	return Frame{
+		Top: strings.Join(top.lines, "\n"), Body: strings.Join(body.lines, "\n"), Anchors: anchors,
+		TopSyms: topSyms, BodySyms: body.syms,
+	}
 }
 
-// RenderLog renders the full log for the `l` view.
-func (r *Renderer) RenderLog(s *Snapshot, width int) string {
+// RenderLog renders the full log for the `l` view, with the legend symbols
+// of each line.
+func (r *Renderer) RenderLog(s *Snapshot, width int) (string, [][]string) {
 	r.init()
-	return strings.Join(append([]string{r.heading("📜", "Log", width)}, r.logLines(s, width, 0)...), "\n")
+	var b block
+	b.add(r.heading("📜", "Log", width))
+	b.cat(r.logLines(s, width, 0))
+	return strings.Join(b.lines, "\n"), b.syms
 }
 
-// Once renders a single uncolored frame as plain text. Finished steps are
-// collapsed unless expand is set.
+// Once renders a single uncolored frame as plain text. With o.Legend it ends
+// with the legend of every symbol in the frame.
 func Once(s *Snapshot, width int, now time.Time, o Options) string {
 	r := &Renderer{Options: o}
 	f := r.Render(s, width, now)
@@ -173,29 +207,40 @@ func Once(s *Snapshot, width int, now time.Time, o Options) string {
 	if f.Body != "" {
 		out += "\n" + f.Body
 	}
-	return strings.TrimRight(out, "\n") + "\n"
+	out = strings.TrimRight(out, "\n")
+	if o.Legend {
+		syms := f.TopSyms
+		for _, ss := range f.BodySyms {
+			syms = append(syms, ss...)
+		}
+		if l := r.LegendLine(syms, width); l != "" {
+			out += "\n\n" + l
+		}
+	}
+	return out + "\n"
 }
 
 var statusEmoji = map[string]string{"done": "🟢", "working": "🔵", "waiting": "🟡", "blocked": "🔴"}
 
 func finished(st Step) bool { return st.State == "done" || st.State == "skipped" }
 
-func (r *Renderer) header(s *Snapshot, width int, now time.Time) []string {
+func (r *Renderer) header(s *Snapshot, width int, now time.Time) block {
 	title := s.Board.Title
 	if title == "" {
 		title = "(untitled)"
 	}
-	var right []string
+	var right, syms []string
 	if el, ok := elapsed(s, now); ok {
-		right = append(right, r.st.dim.Render("⏱ "+fmtDur(el)))
+		right, syms = append(right, r.st.dim.Render("⏱ "+fmtDur(el))), append(syms, "⏱")
 	}
 	switch {
 	case isStale(s, now):
-		right = append(right, r.st.err.Render("⚠ stale "+ago(now.Sub(s.Updated))))
+		right, syms = append(right, r.st.err.Render("⚠ stale "+ago(now.Sub(s.Updated)))), append(syms, "⚠")
 	case !s.Updated.IsZero():
-		right = append(right, r.st.dim.Render("↻ "+ago(now.Sub(s.Updated))))
+		right, syms = append(right, r.st.dim.Render("↻ "+ago(now.Sub(s.Updated)))), append(syms, "↻")
 	}
-	lines := []string{row(r.st.title.Render(title), strings.Join(right, r.st.dim.Render(" · ")), width)}
+	var b block
+	b.add(row(r.st.title.Render(title), strings.Join(right, r.st.dim.Render(" · ")), width), syms...)
 
 	done := 0
 	for _, st := range s.Board.Steps {
@@ -215,14 +260,17 @@ func (r *Renderer) header(s *Snapshot, width int, now time.Time) []string {
 		if r.Color {
 			l += strings.Repeat(" ", max(0, width-ansi.StringWidth(l)))
 		}
-		return append(lines, r.st.doneBand.Render(l))
+		b.add(r.st.doneBand.Render(l), "🟢")
+		return b
 	}
 	em := statusEmoji[s.Status.State]
+	sym := em
 	if em == "" {
 		em = "⚪"
 	}
 	l := em + " " + r.st.bold.Render(s.Status.Text) + "  " + r.st.bar.Render(meter(frac, 10)) + count
-	return append(lines, trunc(l, width))
+	b.add(trunc(l, width), sym)
+	return b
 }
 
 // isStale reports whether a `working` board has not been written to for more
@@ -259,16 +307,16 @@ func elapsed(s *Snapshot, now time.Time) (time.Duration, bool) {
 	return end.Sub(first), true
 }
 
-func (r *Renderer) pending(s *Snapshot, width int) []string {
-	var lines []string
+func (r *Renderer) pending(s *Snapshot, width int) block {
+	var b block
 	for _, p := range s.Board.Pending {
 		l := r.st.pendBar.Render("┃") + " 📥 " + r.st.bold.Render(p.Text)
 		if p.Link != "" {
 			l += "  " + r.st.dim.Render(p.Link)
 		}
-		lines = append(lines, trunc(l, width))
+		b.add(trunc(l, width), "📥")
 	}
-	return lines
+	return b
 }
 
 // agentsShown is how many agents the fixed area lists before the rest
@@ -318,15 +366,15 @@ func (r *Renderer) agentsInBody(s *Snapshot) bool {
 // agents renders the sorted agent list: every agent when all is set,
 // otherwise the first agentsShown and a `🤖 +N more (M over)` line for the
 // rest, M counting the hidden ones over their expected time.
-func (r *Renderer) agents(s *Snapshot, width int, now time.Time, all bool) []string {
+func (r *Renderer) agents(s *Snapshot, width int, now time.Time, all bool) block {
 	agents := sortAgents(s.Agents, now)
 	var hidden []Agent
 	if !all && len(agents) > agentsShown {
 		agents, hidden = agents[:agentsShown], agents[agentsShown:]
 	}
-	var lines []string
+	var b block
 	for _, a := range agents {
-		lines = append(lines, r.agentLine(a, width, now))
+		b.add(r.agentLine(a, width, now))
 	}
 	if len(hidden) > 0 {
 		over := 0
@@ -339,15 +387,15 @@ func (r *Renderer) agents(s *Snapshot, width int, now time.Time, all bool) []str
 		if over > 0 {
 			l += fmt.Sprintf(" (%d over)", over)
 		}
-		lines = append(lines, r.st.dim.Render(trunc(l, width)))
+		b.add(r.st.dim.Render(trunc(l, width)), "🤖")
 	}
 	for _, e := range s.AgentErrs {
-		lines = append(lines, r.errLine(e, width))
+		b.add(r.errLine(e, width), "⚠")
 	}
-	return lines
+	return b
 }
 
-func (r *Renderer) agentLine(a Agent, width int, now time.Time) string {
+func (r *Renderer) agentLine(a Agent, width int, now time.Time) (string, string) {
 	var marker, right string
 	if a.Failed {
 		marker = "🔴"
@@ -372,7 +420,7 @@ func (r *Renderer) agentLine(a Agent, width int, now time.Time) string {
 			}
 		}
 	}
-	return row(marker+" "+a.Name, right, width)
+	return row(marker+" "+a.Name, right, width), marker
 }
 
 // Markers are two cells wide so step text lines up after emoji markers.
@@ -392,7 +440,7 @@ func stepDur(st Step) string {
 	return fmtDur(b.Sub(a))
 }
 
-func (r *Renderer) plan(s *Snapshot, width int, now time.Time) []string {
+func (r *Renderer) plan(s *Snapshot, width int, now time.Time) block {
 	steps := s.Board.Steps
 	nDone, last := 0, -1
 	var lastEnd time.Time
@@ -411,26 +459,28 @@ func (r *Renderer) plan(s *Snapshot, width int, now time.Time) []string {
 	}
 	collapse := nDone > collapseAbove && !r.Expand
 
-	var lines []string
+	var b block
 	summarised := false
 	for _, st := range steps {
 		if collapse && finished(st) {
 			if !summarised {
 				summarised = true
 				text := fmt.Sprintf("%d · last: %s", nDone, steps[last].Text)
-				lines = append(lines, r.stepLine("✔ ", text, "", r.st.done, r.st.dim, stepDur(steps[last]), r.st.dim, lipgloss.Style{}, width))
+				b.add(r.stepLine("✔ ", text, "", r.st.done, r.st.dim, stepDur(steps[last]), r.st.dim, lipgloss.Style{}, width), "✔")
 			}
 			continue
 		}
-		lines = append(lines, r.step(st, width, now))
+		l, syms := r.step(st, width, now)
+		b.add(l, syms...)
 	}
-	return lines
+	return b
 }
 
-func (r *Renderer) step(st Step, width int, now time.Time) string {
+func (r *Renderer) step(st Step, width int, now time.Time) (string, []string) {
 	m := stepMarker[st.State]
+	syms := []string{strings.TrimSpace(m)}
 	if m == "" {
-		m = "? "
+		m, syms = "? ", nil
 	}
 	textSt, noteSt, rightSt := lipgloss.NewStyle(), r.st.dim, r.st.dim
 	var base lipgloss.Style
@@ -443,10 +493,11 @@ func (r *Renderer) step(st Step, width int, now time.Time) string {
 	case "active":
 		if t, err := time.Parse(time.RFC3339, st.Started); err == nil {
 			right = "⏱ " + fmtDur(now.Sub(t))
+			syms = append(syms, "⏱")
 		}
 		// the row background would hide dim text: keep the default foreground
 		base, noteSt, rightSt = r.st.active, lipgloss.NewStyle(), lipgloss.NewStyle()
-		return r.stepLine(r.st.accent.Inherit(base).Render(m), st.Text, st.Note, textSt, noteSt, right, rightSt, base, width)
+		return r.stepLine(r.st.accent.Inherit(base).Render(m), st.Text, st.Note, textSt, noteSt, right, rightSt, base, width), syms
 	case "waiting":
 		noteSt = r.st.noteWaiting
 	case "failed":
@@ -454,7 +505,7 @@ func (r *Renderer) step(st Step, width int, now time.Time) string {
 	case "external":
 		noteSt = r.st.noteExternal
 	}
-	return r.stepLine(m, st.Text, st.Note, textSt, noteSt, right, rightSt, base, width)
+	return r.stepLine(m, st.Text, st.Note, textSt, noteSt, right, rightSt, base, width), syms
 }
 
 const noteSep = " — "
@@ -508,43 +559,46 @@ func fitStep(text, note string, room int) (string, string) {
 
 var logMarker = map[string]string{"commit": "◆", "note": "•", "link": "↗"}
 
-func (r *Renderer) logLines(s *Snapshot, width, max int) []string {
-	var lines []string
+func (r *Renderer) logLines(s *Snapshot, width, max int) block {
+	var b block
 	for i, e := range s.Log {
 		if max > 0 && i >= max {
 			break
 		}
 		m := logMarker[e.Kind]
+		sym := m
 		if m == "" {
-			m = "·"
+			m, sym = "·", ""
 		}
 		ts := "     "
 		if !e.t.IsZero() {
 			ts = e.t.Format("15:04")
 		}
-		lines = append(lines, trunc(r.st.dim.Render(ts)+" "+m+" "+e.Text, width))
+		b.add(trunc(r.st.dim.Render(ts)+" "+m+" "+e.Text, width), sym)
 	}
 	for _, e := range s.LogErrs {
-		lines = append(lines, r.errLine(e, width))
+		b.add(r.errLine(e, width), "⚠")
 	}
-	return lines
+	return b
 }
 
-func (r *Renderer) section(sec Section, width int) []string {
+func (r *Renderer) section(sec Section, width int) block {
+	var b block
 	if sec.Err != nil {
-		return []string{r.errLine(sec.Name+": "+sec.Err.Error(), width)}
+		b.add(r.errLine(sec.Name+": "+sec.Err.Error(), width), "⚠")
+		return b
 	}
 	switch sec.Kind {
 	case "md":
-		return r.markdown(sec, width)
+		b.addAll(r.markdown(sec, width))
 	case "chart":
-		return r.chart(sec.Chart, width)
+		b.addAll(r.chart(sec.Chart, width))
 	case "table":
-		return r.table(sec.Table, width)
+		b.addAll(r.table(sec.Table, width))
 	case "checks":
 		return r.checks(sec.Checks, width)
 	}
-	return nil
+	return b
 }
 
 // inlineCodeColor is ANSI cyan for `inline code` in the live styles.
@@ -669,31 +723,32 @@ func fmtNum(v float64) string {
 // checks renders a *.checks.json section: one green `✔ N/N checks` line when
 // all pass, otherwise a red `✘ F/N checks failed` line followed by the
 // failing checks. With AllChecks, every check is listed.
-func (r *Renderer) checks(c *Checks, width int) []string {
+func (r *Renderer) checks(c *Checks, width int) block {
 	n, failed := len(c.Checks), 0
 	for _, ch := range c.Checks {
 		if !ch.OK {
 			failed++
 		}
 	}
+	var b block
 	if n == 0 {
-		return []string{r.st.dim.Render("no checks")}
+		b.add(r.st.dim.Render("no checks"))
+		return b
 	}
-	var lines []string
 	if failed == 0 {
-		lines = append(lines, r.st.ok.Render(trunc(fmt.Sprintf("✔ %d/%d checks", n, n), width)))
+		b.add(r.st.ok.Render(trunc(fmt.Sprintf("✔ %d/%d checks", n, n), width)), "✔")
 	} else {
-		lines = append(lines, r.st.err.Render(trunc(fmt.Sprintf("✘ %d/%d checks failed", failed, n), width)))
+		b.add(r.st.err.Render(trunc(fmt.Sprintf("✘ %d/%d checks failed", failed, n), width)), "✘")
 	}
 	for _, ch := range c.Checks {
 		if ch.OK && !r.AllChecks {
 			continue
 		}
-		marker, st := r.st.ok.Render("✔"), lipgloss.NewStyle()
+		sym, marker, st := "✔", r.st.ok.Render("✔"), lipgloss.NewStyle()
 		if !ch.OK {
-			marker, st = r.st.err.Render("✘"), r.st.failed
+			sym, marker, st = "✘", r.st.err.Render("✘"), r.st.failed
 		}
-		lines = append(lines, r.stepLine("  "+marker, ch.Name, ch.Detail, st, r.st.dim, "", r.st.dim, lipgloss.Style{}, width))
+		b.add(r.stepLine("  "+marker, ch.Name, ch.Detail, st, r.st.dim, "", r.st.dim, lipgloss.Style{}, width), sym)
 	}
-	return lines
+	return b
 }
