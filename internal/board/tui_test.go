@@ -33,9 +33,9 @@ func TestModelDoneToggleAndFooter(t *testing.T) {
 		t.Errorf("d should expand finished steps:\n%s", view)
 	}
 
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 60}) // everything fits: no ↓
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 60}) // everything fits: no ↓ and no ⇥ (tab would not scroll)
 	lines = strings.Split(ansi.Strip(m.View()), "\n")
-	if foot := lines[len(lines)-1]; foot != "⇥ sections · d done · l log · ? help · q" {
+	if foot := lines[len(lines)-1]; foot != "d done · l log · ? help · q" {
 		t.Errorf("footer without scroll = %q", foot)
 	}
 }

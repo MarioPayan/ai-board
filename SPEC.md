@@ -127,7 +127,7 @@ Live viewer only, below the body:
 
 Header, pending and agents (unless listed in the body, see 4) stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
 
-Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between Agents (when in the body), Plan, each Details subsection and Log, `l` toggles a full-screen log, `?` toggles the full-screen help, `d` expands or collapses finished steps, `a` lists every agent or the first three, `c` lists every check or only the failing ones, `q` quits.
+Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` (shown only when the body scrolls) jump between Agents (when in the body), Plan, each Details subsection and Log, `l` toggles a full-screen log, `?` toggles the full-screen help, `d` expands or collapses finished steps, `a` lists every agent or the first three, `c` lists every check or only the failing ones, `q` quits.
 
 The viewer sets the terminal title to `board: <session-id>`; the opener script finds an existing pane by that title.
 

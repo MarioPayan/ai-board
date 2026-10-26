@@ -79,10 +79,19 @@ func TestModelFooterKeys(t *testing.T) {
 		{"checks-fail", "⇥ sections · c checks · l log · ? help · q"},
 	}
 	for _, c := range cases {
-		m := newModel(t, c.fixture, 80, 200) // tall: no ↓
+		m := newModel(t, c.fixture, 80, 12) // short: the body scrolls
 		lines := viewLines(m)
-		if got := lines[len(lines)-1]; got != c.want {
+		got := lines[len(lines)-1]
+		if i := strings.Index(got, " · "); strings.HasPrefix(got, "↓ ") && i >= 0 {
+			got = got[i+len(" · "):]
+		}
+		if got != c.want {
 			t.Errorf("%s: footer = %q, want %q", c.fixture, got, c.want)
+		}
+		m = newModel(t, c.fixture, 80, 200) // tall: everything fits, so tab would not scroll
+		lines = viewLines(m)
+		if got := lines[len(lines)-1]; strings.Contains(got, "⇥") || strings.HasPrefix(got, "↓") {
+			t.Errorf("%s tall: footer = %q, want no ↓ and no ⇥", c.fixture, got)
 		}
 	}
 }

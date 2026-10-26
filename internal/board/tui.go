@@ -225,7 +225,8 @@ func (m *model) legend() string {
 // scrolls) and the keys, leaving out those that would do nothing.
 func (m *model) footer() string {
 	var keys []string
-	if len(m.anchors) > 1 {
+	// tab only scrolls, so it does nothing when the whole body fits.
+	if len(m.anchors) > 1 && m.vp.TotalLineCount() > m.vp.Height {
 		keys = append(keys, "⇥ sections")
 	}
 	if finishedSteps(m.snap) > collapseAbove {
