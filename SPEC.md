@@ -7,6 +7,7 @@ A read-only terminal viewer for Claude Code session boards. Claude and hooks wri
 ```
 ~/.claude/boards/<session-id>/
   board.json            Claude: title, status, steps, pending
+  status.json           Stop hook (lib/meta/stop-guard.py): latest status, overrides board.json status when newer
   agents.jsonl          hooks + `board agent`: running subagents (append-only)
   log.jsonl             hooks + `board log`: events (append-only)
   sections/
@@ -35,6 +36,7 @@ Every file is optional. A missing directory renders a "waiting for <path>" scree
 }
 ```
 
+- `status.json`, written only by the Stop hook, has the same shape as `status` plus a timestamp: `{"state":"working","text":"Awaiting CI","ts":"<RFC3339>"}`. The viewer shows whichever is newer: status.json when its `ts` is after board.json's file mtime, otherwise board.json `status`. A missing or broken status.json falls back to board.json `status`.
 - `status.state`: `done` 🟢, `working` 🔵, `waiting` 🟡 (on Mario), `blocked` 🔴. Same meaning as the response status line. `status.text` is 1–4 words.
 - `steps[].state`: `done` ✔, `active` ●, `waiting` (on Mario) 🟡, `external` (CI, a subagent, a deploy) 🟣, `failed` ✘, `todo` ○, `skipped` (shown like done, struck through). `note` is one clause shown after the step (what it waits on, why it failed, why skipped).
 - `started` / `ended` are RFC 3339. The viewer derives times from them; writers never compute durations.
@@ -99,7 +101,7 @@ Top to bottom:
 5. **Sections**, in order, each with its title as a rule.
 6. **Log**: the five newest entries.
 
-Header and agents stay fixed; everything below scrolls. Times refresh every second; file changes re-render immediately (fsnotify on the directory and `sections/`).
+Header and agents stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
 
 Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between sections, `l` toggles a full-screen log, `q` quits.
 
