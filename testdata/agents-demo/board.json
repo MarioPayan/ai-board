@@ -1,0 +1,13 @@
+{
+  "title": "Board TUI",
+  "status": { "state": "waiting", "text": "Esperando tu OK" },
+  "steps": [
+    { "text": "Escribir SPEC.md", "state": "done", "started": "2026-10-26T13:00:00-05:00", "ended": "2026-10-26T13:15:00-05:00" },
+    { "text": "Spike de layout descartado", "state": "skipped", "note": "Glamour basta" },
+    { "text": "Implementar el visor en Go", "state": "external", "note": "repo-worker" },
+    { "text": "Revisar el render", "state": "waiting", "note": "tu OK al layout" },
+    { "text": "Instalar el hook", "state": "failed", "note": "settings.json bloqueado" },
+    { "text": "Publicar", "state": "todo" }
+  ],
+  "pending": [ { "text": "Aprobar el layout", "link": "https://claude.ai/artifact/demo" } ]
+}

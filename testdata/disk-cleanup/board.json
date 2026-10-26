@@ -1,0 +1,12 @@
+{
+  "title": "Limpieza de disco",
+  "status": { "state": "working", "text": "Clasificando hallazgos" },
+  "steps": [
+    { "text": "Leer guías de deck y board", "state": "done", "started": "2026-10-26T11:05:00-05:00", "ended": "2026-10-26T11:10:00-05:00" },
+    { "text": "Escanear disco: home, sistema, Docker, duplicados (czkawka)", "state": "done", "started": "2026-10-26T11:10:00-05:00", "ended": "2026-10-26T11:35:00-05:00" },
+    { "text": "Clasificar candidatos con riesgo", "state": "active", "started": "2026-10-26T11:35:00-05:00" },
+    { "text": "Construir decision deck", "state": "todo" },
+    { "text": "Publicar artefacto", "state": "todo" }
+  ],
+  "pending": []
+}

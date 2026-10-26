@@ -1,0 +1,1 @@
+{ "type": "bar", "unit": "m", "series": [ { "label": "Spec", "value": 15 }, { "label": "Render", "value": 42.5 }, { "label": "Hook", "value": 8 } ] }

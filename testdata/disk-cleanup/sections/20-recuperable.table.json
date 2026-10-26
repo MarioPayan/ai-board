@@ -1,0 +1,12 @@
+{
+  "columns": [ { "name": "Zona" }, { "name": "Recuperable", "align": "right", "bar": true } ],
+  "rows": [
+    [ "Docker volúmenes huérfanos (3801)", { "v": 384, "text": "384G" } ],
+    [ "Docker build cache", { "v": 54, "text": "54G" } ],
+    [ "SerParaSer drive/PROGRAMAS_FSPS (copia vieja 100% duplicada)", { "v": 172, "text": "172G" } ],
+    [ "node_modules/.venv/target en repos", { "v": 222, "text": "222G" } ],
+    [ "556 worktrees (263 sin respaldo remoto)", "por medir" ],
+    [ "Caches (~/.cache, .npm, pnpm)", { "v": 70, "text": "~70G" } ],
+    [ "Papelera", { "v": 16, "text": "16G" } ]
+  ]
+}

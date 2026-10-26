@@ -1,0 +1,11 @@
+{"ts":"2026-10-26T13:20:00-05:00","event":"start","id":"a1","name":"repo-worker: TUI","expect_min":30}
+{"ts":"2026-10-26T13:25:00-05:00","event":"start","id":"a2","name":"Explore: hooks"}
+{"ts":"2026-10-26T13:30:00-05:00","event":"start","id":"a3","name":"codex review"}
+{"ts":"2026-10-26T13:40:00-05:00","event":"stop","id":"a3","ok":false}
+{"ts":"2026-10-26T13:41:00-05:00","event":"start","id":"a4","name":"gemini review"}
+{"ts":"2026-10-26T13:45:00-05:00","event":"stop","id":"a4","ok":true}
+{"ts":"2026-10-26T13:46:00-05:00","event":"start","id":"a5","name":"flaky"}
+{"ts":"2026-10-26T13:47:00-05:00","event":"stop","id":"a5","ok":false}
+{"ts":"2026-10-26T13:48:00-05:00","event":"dismiss","id":"a5"}
+{"ts":"2026-10-26T13:49:00-05:00","event":"stop","id":"a2","ok":true}
+{"ts":"2026-10-26T13:50:00-05:00","event":"start","id":"a2","name":"Explore: hooks (retry)"}

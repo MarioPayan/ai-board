@@ -1,0 +1,27 @@
+Limpieza de disco
+🔵 Clasificando hallazgos  ████░░░░░░ 2/5  53m elapsed  updated 3m ago
+── Plan ────────────────────────────────────────────────────────────────────────
+✔  Leer guías de deck y board                                              11:10
+✔  Escanear disco: home, sistema, Docker, duplicados (czkawka)             11:35
+●  Clasificar candidatos con riesgo                                          23m
+○  Construir decision deck
+○  Publicar artefacto
+── Pending ─────────────────────────────────────────────────────────────────────
+nothing pending
+── Hallazgos ───────────────────────────────────────────────────────────────────
+  Disco: 1.9T, 1.6T usado (90%), 180G libres.
+── Recuperable ─────────────────────────────────────────────────────────────────
+Zona                                                    Recuperable
+──────────────────────────────────────────────────────  ─────────── ────────────
+Docker volúmenes huérfanos (3801)                              384G ████████████
+Docker build cache                                              54G █▊
+SerParaSer drive/PROGRAMAS_FSPS (copia vieja 100% dup…         172G █████▍
+node_modules/.venv/target en repos                             222G ███████
+556 worktrees (263 sin respaldo remoto)                   por medir
+Caches (~/.cache, .npm, pnpm)                                  ~70G ██▎
+Papelera                                                        16G ▌
+── Uso ─────────────────────────────────────────────────────────────────────────
+Disco ███████████████████████████████████████████████████░░░░░░░░░ 1.6/1.9 T 84%
+── Log ─────────────────────────────────────────────────────────────────────────
+11:35 · czkawka: 270 GiB en duplicados, casi todo SerParaSer/drive
+11:05 · Inicio de la revisión

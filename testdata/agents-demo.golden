@@ -1,0 +1,35 @@
+Board TUI
+🟡 Esperando tu OK  ███░░░░░░░ 2/6  1h00m elapsed  updated 3m ago
+🔵 repo-worker: TUI                                      ██████████ 40m/30m over
+🔵 Explore: hooks (retry)                                                    10m
+🔴 codex review                                                     failed 13:40
+── Plan ────────────────────────────────────────────────────────────────────────
+✔  Escribir SPEC.md                                                        13:15
+✔  Spike de layout descartado                             skipped: Glamour basta
+🟣 Implementar el visor en Go                                        repo-worker
+🟡 Revisar el render                                             tu OK al layout
+✘  Instalar el hook                                      settings.json bloqueado
+○  Publicar
+── Pending ─────────────────────────────────────────────────────────────────────
+→ Aprobar el layout  https://claude.ai/artifact/demo
+── Notas del diseño ────────────────────────────────────────────────────────────
+  • Cabecera y agentes **fijos**; el resto hace scroll.
+  • Los pasos hechos se atenúan, no se borran.
+
+    graph LR
+      hooks --> agents.jsonl --> board
+── Commits por hora ────────────────────────────────────────────────────────────
+commits/h ▁▂▄▃▅█▅▆ 6
+── Tiempos ─────────────────────────────────────────────────────────────────────
+Spec   ███████████████████████▋                                              15m
+Render ███████████████████████████████████████████████████████████████████ 42.5m
+Hook   ████████████▋                                                          8m
+── Roto ────────────────────────────────────────────────────────────────────────
+⚠ 40-roto.table.json: unexpected end of JSON input
+── Log ─────────────────────────────────────────────────────────────────────────
+13:52 ◆ c09aa11 test: golden files
+13:44 ◆ b71e0d2 fix: tab jumps
+13:40 ↗ https://claude.ai/artifact/demo
+13:33 • Glamour no renderiza mermaid
+13:31 ◆ a3f9c1e feat: render tables
+⚠ log.jsonl:5: invalid character 'o' in literal null (expecting 'u')
