@@ -105,23 +105,38 @@ func (r *Renderer) Render(s *Snapshot, width int, now time.Time) Frame {
 
 	var body []string
 	var anchors []int
+	// top-level blocks are separated by one blank line; a subsection title
+	// sits right on its body
+	gap := func() {
+		if len(body) > 0 {
+			body = append(body, "")
+		}
+	}
 	if len(s.Board.Steps) > 0 {
+		gap()
 		anchors = append(anchors, len(body))
 		body = append(body, r.heading("📋", "Plan", width))
 		body = append(body, r.plan(s, width, now)...)
 	}
 	for i, sec := range s.Sections {
-		anchors = append(anchors, len(body))
 		if i == 0 {
+			gap()
+			anchors = append(anchors, len(body))
 			body = append(body, r.heading("🔎", "Details", width))
+		} else {
+			anchors = append(anchors, len(body))
 		}
 		body = append(body, r.st.bold.Render(trunc(sec.Title, width)))
 		body = append(body, r.section(sec, width)...)
 	}
 	if log := r.logLines(s, width, 5); len(log) > 0 {
+		gap()
 		anchors = append(anchors, len(body))
 		body = append(body, r.heading("📜", "Log", width))
 		body = append(body, log...)
+	}
+	if len(body) > 0 {
+		top = append(top, "") // a blank line between the fixed area and the body
 	}
 	return Frame{Top: strings.Join(top, "\n"), Body: strings.Join(body, "\n"), Anchors: anchors}
 }

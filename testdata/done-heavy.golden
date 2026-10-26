@@ -1,5 +1,6 @@
 Board visual pass                                             ⏱ 1h28m · ↻ 3m ago
 🔵 Rendering goldens  █████░░░░░ 5/10
+
 📋 Plan ────────────────────────────────────────────────────────────────────────
 ✔  5 · last: Collapse finished steps behind a summary line                   25m
 ▶  Regenerate and read every golden file — four fixtures                   ⏱ 23m
@@ -7,6 +8,7 @@ Board visual pass                                             ⏱ 1h28m · ↻ 3
 🟡 Approve the new layout before it ships to every session board — Mario review…
 ✘  Commit — pre-commit hook rejected gofmt
 ○  Report back
+
 🔎 Details ─────────────────────────────────────────────────────────────────────
 Where
   • Viewer: ~/repos/Kaze/board (main)
@@ -17,6 +19,7 @@ File       Lines                           Owner
 render.go    520 ████████████████████████  viewer
 charts.go    209 █████████▋                viewer
 tui.go       200 █████████▎                viewer
+
 📜 Log ─────────────────────────────────────────────────────────────────────────
 10:05 ◆ 5d6e7f8 feat: collapse finished steps
 09:13 ◆ 1a2b3c4 test: failing unit tests

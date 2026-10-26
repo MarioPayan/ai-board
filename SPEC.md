@@ -101,7 +101,7 @@ Fixed area, top to bottom:
 3. **Pending**: one line per item, marked with a yellow `┃` bar and `📥`, the item in bold and its link dimmed after it. No line at all when there is nothing pending.
 4. **Agents**: one line per running agent (`🤖`) or failed agent (`🔴`). Omitted when there are none.
 
-Scrolling body, top to bottom; each heading is a bold title followed by a dim rule, and a block with nothing to show is omitted:
+Scrolling body, top to bottom; each heading is a bold title followed by a dim rule, and a block with nothing to show is omitted. One blank line separates the fixed area from the body and each top-level block (Plan, Details, Log) from the next; a subsection title sits directly on its body, with no blank line:
 
 5. **📋 Plan**: every step as `<marker> <text> — <note>`, the note coloured by state (waiting yellow, failed red, external magenta, others dim). The right column means one thing per state: done and skipped show their duration (`ended - started`, blank when either is missing); active shows `⏱ <elapsed>`; other states show nothing. The active step's marker is `▶` in an accent colour and, in the live viewer, its whole row has a subtle background. When a line is too long the note is truncated first (down to 6 cells), then the text (down to 20 cells); if it still does not fit, the note is dropped.
    When more than three steps are done or skipped, they collapse into one line, `✔ <N> · last: <text of the most recently ended one>` with that step's duration on the right, placed where the first finished step was. `d` toggles this in the live viewer; `--once` renders collapsed unless `--expand` is given.

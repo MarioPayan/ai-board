@@ -173,3 +173,34 @@ func TestCollapseFinished(t *testing.T) {
 		t.Errorf("3 finished steps should not collapse:\n%s", got)
 	}
 }
+
+// One blank line separates the fixed area, Plan, Details and Log; none
+// between a subsection title and its body.
+func TestBlankLinesBetweenSections(t *testing.T) {
+	s := &Snapshot{
+		Status:   Status{State: "working", Text: "x"},
+		Board:    BoardFile{Title: "T", Steps: []Step{{Text: "s", State: "todo"}}},
+		Sections: []Section{{Name: "10-a.md", Title: "A", Kind: "md", Body: []byte("alpha\n")}},
+		Log:      []LogEntry{{Text: "entry"}},
+	}
+	got := Once(s, 40, time.Now(), false)
+	lines := strings.Split(got, "\n")
+	idx := func(prefix string) int {
+		for i, l := range lines {
+			if strings.HasPrefix(l, prefix) {
+				return i
+			}
+		}
+		t.Fatalf("no line starting %q in\n%s", prefix, got)
+		return -1
+	}
+	for _, h := range []string{"📋 Plan", "🔎 Details", "📜 Log"} {
+		i := idx(h)
+		if lines[i-1] != "" || (i > 1 && lines[i-2] == "") {
+			t.Errorf("want exactly one blank line before %q:\n%s", h, got)
+		}
+	}
+	if i := idx("A"); lines[i+1] == "" || lines[i-1] == "" {
+		t.Errorf("subsection title should sit between its heading and body:\n%s", got)
+	}
+}

@@ -1,7 +1,9 @@
 Release 1.2                                                     ⏱ 35m · ↻ 3m ago
 🟢 Shipped  ██████████ 4/4
+
 📋 Plan ────────────────────────────────────────────────────────────────────────
 ✔  4 · last: Announce in the changelog                                        4m
+
 🔎 Details ─────────────────────────────────────────────────────────────────────
 Artifacts
   Binaries for linux/amd64 and darwin/arm64 are attached to the release.

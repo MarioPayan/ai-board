@@ -1,11 +1,13 @@
 Limpieza de disco                                               ⏱ 53m · ↻ 3m ago
 🔵 Clasificando hallazgos  ████░░░░░░ 2/5
+
 📋 Plan ────────────────────────────────────────────────────────────────────────
 ✔  Leer guías de deck y board                                                 5m
 ✔  Escanear disco: home, sistema, Docker, duplicados (czkawka)               25m
 ▶  Clasificar candidatos con riesgo                                        ⏱ 23m
 ○  Construir decision deck
 ○  Publicar artefacto
+
 🔎 Details ─────────────────────────────────────────────────────────────────────
 Hallazgos
   Disco: 1.9T, 1.6T usado (90%), 180G libres.
@@ -21,6 +23,7 @@ Caches (~/.cache, .npm, pnpm)                                  ~70G ██▎
 Papelera                                                        16G ▌
 Uso
 Disco ███████████████████████████████████████████████████░░░░░░░░░ 1.6/1.9 T 84%
+
 📜 Log ─────────────────────────────────────────────────────────────────────────
 11:35 · czkawka: 270 GiB en duplicados, casi todo SerParaSer/drive
 11:05 · Inicio de la revisión
