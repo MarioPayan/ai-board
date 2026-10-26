@@ -1,0 +1,12 @@
+Checks some fail                                                ⏱ 30m · ↻ 3m ago
+🔵 Verifying  █████░░░░░ 1/2
+
+📋 Plan ────────────────────────────────────────────────────────────────────────
+✔  Implement                                                                 20m
+▶  Run checks                                                              ⏱ 10m
+
+🔎 Details ─────────────────────────────────────────────────────────────────────
+Verification
+✘ 2/5 checks failed
+  ✘ go test -count=1 ./... — 2 failed: TestGolden/agents-many, TestLegend
+  ✘ live TUI under script — panic: index out of range in legend() when the view…

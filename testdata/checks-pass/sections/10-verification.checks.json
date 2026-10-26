@@ -1,0 +1,7 @@
+{"checks":[
+  {"name":"go test -count=1 ./...","ok":true,"detail":"42 tests"},
+  {"name":"gofmt -l .","ok":true,"detail":"no files"},
+  {"name":"go vet ./...","ok":true},
+  {"name":"live TUI under script","ok":true,"detail":"footer and legend present"},
+  {"name":"goldens read","ok":true,"detail":"9 files"}
+]}

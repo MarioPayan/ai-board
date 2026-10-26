@@ -14,6 +14,7 @@ A read-only terminal viewer for Claude Code session boards. Claude and hooks wri
     10-findings.md          free Markdown
     20-space.chart.json     chart
     30-candidates.table.json table
+    40-verification.checks.json verification results
 ```
 
 Each file has one kind of writer. JSONL files are only appended to, never rewritten, so hooks and Claude never race on the same bytes. `board.json` and section files are replaced whole (write to a temp file, rename).
@@ -90,6 +91,14 @@ Horizontal bars for `bar` (labels left, value right, bars scaled to the series m
 
 A cell is a string, a number, or `{ "v": number, "text": string }`. A `bar: true` column draws an inline bar after the text, scaled to the column's numeric max; non-numeric cells get no bar.
 
+### `*.checks.json`
+
+```json
+{ "checks": [ { "name": "go test ./...", "ok": true, "detail": "8 tests" }, { "name": "go vet ./...", "ok": false, "detail": "2 issues" } ] }
+```
+
+Verification results. `detail` is optional. When every check passes the section is one green line, `✔ <N>/<N> checks`. When any fails it is a red `✘ <F>/<N> checks failed` followed by only the failing checks, one per line, indented: `✘ <name> — <detail>` (the detail dim, truncated to the width). `c` toggles listing every check, passing ones (`✔`) included, in the live viewer; `--once` lists only the failing ones unless `--checks` is given. An empty list renders a dim `no checks`.
+
 ## Layout
 
 Labels are English; icons replace words where the meaning stays obvious. Colours are ANSI 16-colour indices, so the terminal theme picks the shades.
@@ -112,7 +121,7 @@ Live viewer only: a dim footer line, `↓ <N> · ⇥ sections · l log · d done
 
 Header, pending and agents stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
 
-Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between Plan, each Details subsection and Log, `l` toggles a full-screen log, `d` expands or collapses finished steps, `q` quits.
+Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between Plan, each Details subsection and Log, `l` toggles a full-screen log, `d` expands or collapses finished steps, `c` lists every check or only the failing ones, `q` quits.
 
 The viewer sets the terminal title to `board: <session-id>`; the opener script finds an existing pane by that title.
 
@@ -120,7 +129,7 @@ The viewer sets the terminal title to `board: <session-id>`; the opener script f
 
 ```
 board [<session-id>]             watch and render (default: newest board directory by mtime)
-board --once [--width N] [--expand] [<id>]
+board --once [--width N] [--expand] [--checks] [<id>]
                                  render a single frame to stdout without color and exit
 board log [--kind K] <text>      append to log.jsonl of $CLAUDE_CODE_SESSION_ID
 board agent start <id> <name> [--expect MIN]
@@ -136,4 +145,4 @@ board hook                       read a Claude Code hook payload on stdin and ap
 
 It uses the payload's `session_id` to pick the directory. It never fails the hook: on any error it exits 0 and writes nothing. Unknown events are ignored.
 
-`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests; `--expand` lists every finished step instead of the collapsed summary.
+`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests; `--expand` lists every finished step instead of the collapsed summary; `--checks` lists passing checks too.

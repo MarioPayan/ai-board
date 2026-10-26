@@ -83,6 +83,7 @@ func TestSectionTitle(t *testing.T) {
 		{"10-findings.md", "## Not h1\n", "Findings"},
 		{"20-space-usage.chart.json", "", "Space usage"},
 		{"30-candidates.table.json", "", "Candidates"},
+		{"50-verification.checks.json", "", "Verification"},
 		{"notes.md", "", "Notes"},
 		{"05_ñandú.md", "", "Ñandú"},
 	}

@@ -38,3 +38,16 @@ func TestModelDoneToggleAndFooter(t *testing.T) {
 		t.Errorf("footer without scroll = %q", foot)
 	}
 }
+
+func TestModelChecksToggle(t *testing.T) {
+	m := &model{r: &Renderer{}, snap: Load(filepath.Join("..", "..", "testdata", "checks-fail")), vp: viewport.New(80, 10)}
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
+	view := ansi.Strip(m.View())
+	if !strings.Contains(view, "✘ 2/5 checks failed") || strings.Contains(view, "gofmt") {
+		t.Errorf("checks should start with only the failing ones:\n%s", view)
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	if view = ansi.Strip(m.View()); !strings.Contains(view, "✔ gofmt -l . — no files") {
+		t.Errorf("c should list passing checks:\n%s", view)
+	}
+}

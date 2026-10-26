@@ -67,14 +67,15 @@ type LogEntry struct {
 
 // Section is one file under sections/.
 type Section struct {
-	Name  string // file name
-	Title string
-	Kind  string // md, chart, table
-	Body  []byte // content (md: heading stripped)
-	Err   error  // read or parse error, rendered in place
-	Chart *Chart
-	Table *Table
-	mod   time.Time
+	Name   string // file name
+	Title  string
+	Kind   string // md, chart, table, checks
+	Body   []byte // content (md: heading stripped)
+	Err    error  // read or parse error, rendered in place
+	Chart  *Chart
+	Table  *Table
+	Checks *Checks
+	mod    time.Time
 }
 
 // Chart is a *.chart.json section.
@@ -142,6 +143,18 @@ func (c *Cell) UnmarshalJSON(b []byte) error {
 type Table struct {
 	Columns []Column `json:"columns"`
 	Rows    [][]Cell `json:"rows"`
+}
+
+// Check is one verification result in a *.checks.json section.
+type Check struct {
+	Name   string `json:"name"`
+	OK     bool   `json:"ok"`
+	Detail string `json:"detail"`
+}
+
+// Checks is a *.checks.json section.
+type Checks struct {
+	Checks []Check `json:"checks"`
 }
 
 // Snapshot is everything read from one board directory.
@@ -337,7 +350,7 @@ func SectionTitle(name string, body []byte) (string, bool) {
 		}
 	}
 	base := name
-	for _, ext := range []string{".chart.json", ".table.json", ".md"} {
+	for _, ext := range []string{".chart.json", ".table.json", ".checks.json", ".md"} {
 		base = strings.TrimSuffix(base, ext)
 	}
 	base = prefixRe.ReplaceAllString(base, "")
@@ -357,6 +370,8 @@ func sectionKind(name string) string {
 		return "chart"
 	case strings.HasSuffix(name, ".table.json"):
 		return "table"
+	case strings.HasSuffix(name, ".checks.json"):
+		return "checks"
 	case strings.HasSuffix(name, ".md"):
 		return "md"
 	}
@@ -413,6 +428,13 @@ func loadSections(dir string, note func(string)) []Section {
 				sec.Err = err
 			} else {
 				sec.Table = &t
+			}
+		case "checks":
+			var c Checks
+			if err := json.Unmarshal(b, &c); err != nil {
+				sec.Err = err
+			} else {
+				sec.Checks = &c
 			}
 		}
 		out = append(out, sec)

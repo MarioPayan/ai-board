@@ -17,9 +17,9 @@ import (
 // Renderer turns a Snapshot into text. With Color false it emits no escape
 // sequences, so the output is stable for golden tests.
 type Renderer struct {
-	Color  bool
-	Dark   bool // glamour style when Color is true
-	Expand bool // list every finished step instead of the collapsed summary
+	Color bool
+	Dark  bool // glamour style when Color is true
+	Options
 
 	st     styles
 	mdKey  string
@@ -27,12 +27,18 @@ type Renderer struct {
 	mdMemo map[string]string
 }
 
+// Options are the view toggles: keys in the live viewer, flags with --once.
+type Options struct {
+	Expand    bool // d, --expand: list every finished step instead of the collapsed summary
+	AllChecks bool // c, --checks: list passing checks too, not only failing ones
+}
+
 // Colours are ANSI 16-colour indices so the terminal theme decides the shade.
 type styles struct {
 	title, dim, bold, rule, err, bar, barOver lipgloss.Style
 	done, skipped, accent, active, failed     lipgloss.Style
 	noteWaiting, noteFailed, noteExternal     lipgloss.Style
-	pendBar, doneBand                         lipgloss.Style
+	pendBar, doneBand, ok                     lipgloss.Style
 }
 
 // staleAfter is how old the newest file may be while the status is
@@ -73,6 +79,7 @@ func (r *Renderer) init() {
 		noteExternal: s().Foreground(c("5")),
 		pendBar:      s().Foreground(c("3")).Bold(true),
 		doneBand:     s().Background(c("2")).Foreground(c("0")).Bold(true),
+		ok:           s().Foreground(c("2")),
 	}
 	r.mdMemo = map[string]string{}
 }
@@ -149,8 +156,8 @@ func (r *Renderer) RenderLog(s *Snapshot, width int) string {
 
 // Once renders a single uncolored frame as plain text. Finished steps are
 // collapsed unless expand is set.
-func Once(s *Snapshot, width int, now time.Time, expand bool) string {
-	r := &Renderer{Expand: expand}
+func Once(s *Snapshot, width int, now time.Time, o Options) string {
+	r := &Renderer{Options: o}
 	f := r.Render(s, width, now)
 	out := f.Top
 	if f.Body != "" {
@@ -458,6 +465,8 @@ func (r *Renderer) section(sec Section, width int) []string {
 		return r.chart(sec.Chart, width)
 	case "table":
 		return r.table(sec.Table, width)
+	case "checks":
+		return r.checks(sec.Checks, width)
 	}
 	return nil
 }
@@ -579,4 +588,36 @@ func fmtNum(v float64) string {
 		return fmt.Sprintf("%d", int64(v))
 	}
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", v), "0"), ".")
+}
+
+// checks renders a *.checks.json section: one green `✔ N/N checks` line when
+// all pass, otherwise a red `✘ F/N checks failed` line followed by the
+// failing checks. With AllChecks, every check is listed.
+func (r *Renderer) checks(c *Checks, width int) []string {
+	n, failed := len(c.Checks), 0
+	for _, ch := range c.Checks {
+		if !ch.OK {
+			failed++
+		}
+	}
+	if n == 0 {
+		return []string{r.st.dim.Render("no checks")}
+	}
+	var lines []string
+	if failed == 0 {
+		lines = append(lines, r.st.ok.Render(trunc(fmt.Sprintf("✔ %d/%d checks", n, n), width)))
+	} else {
+		lines = append(lines, r.st.err.Render(trunc(fmt.Sprintf("✘ %d/%d checks failed", failed, n), width)))
+	}
+	for _, ch := range c.Checks {
+		if ch.OK && !r.AllChecks {
+			continue
+		}
+		marker, st := r.st.ok.Render("✔"), lipgloss.NewStyle()
+		if !ch.OK {
+			marker, st = r.st.err.Render("✘"), r.st.failed
+		}
+		lines = append(lines, r.stepLine("  "+marker, ch.Name, ch.Detail, st, r.st.dim, "", r.st.dim, lipgloss.Style{}, width))
+	}
+	return lines
 }

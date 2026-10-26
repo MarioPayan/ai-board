@@ -158,18 +158,18 @@ func TestCollapseFinished(t *testing.T) {
 		{Text: "now", State: "active", Started: "2026-10-26T10:30:00Z"},
 	}}}
 	now := time.Date(2026, 10, 26, 10, 40, 0, 0, time.UTC)
-	got := Once(s, 60, now, false)
+	got := Once(s, 60, now, Options{})
 	if !strings.Contains(got, "✔  4 · last: latest") || !strings.Contains(got, "25m\n") || strings.Contains(got, "three") {
 		t.Errorf("collapsed plan:\n%s", got)
 	}
-	exp := Once(s, 60, now, true)
+	exp := Once(s, 60, now, Options{Expand: true})
 	for _, w := range []string{"one", "latest", "three", "skipped"} {
 		if !strings.Contains(exp, w) {
 			t.Errorf("expanded plan misses %q:\n%s", w, exp)
 		}
 	}
 	s.Board.Steps = s.Board.Steps[1:] // three finished: shown one by one
-	if got := Once(s, 60, now, false); strings.Contains(got, "· last:") {
+	if got := Once(s, 60, now, Options{}); strings.Contains(got, "· last:") {
 		t.Errorf("3 finished steps should not collapse:\n%s", got)
 	}
 }
@@ -183,7 +183,7 @@ func TestBlankLinesBetweenSections(t *testing.T) {
 		Sections: []Section{{Name: "10-a.md", Title: "A", Kind: "md", Body: []byte("alpha\n")}},
 		Log:      []LogEntry{{Text: "entry"}},
 	}
-	got := Once(s, 40, time.Now(), false)
+	got := Once(s, 40, time.Now(), Options{})
 	lines := strings.Split(got, "\n")
 	idx := func(prefix string) int {
 		for i, l := range lines {
@@ -202,5 +202,27 @@ func TestBlankLinesBetweenSections(t *testing.T) {
 	}
 	if i := idx("A"); lines[i+1] == "" || lines[i-1] == "" {
 		t.Errorf("subsection title should sit between its heading and body:\n%s", got)
+	}
+}
+
+func TestChecksSummary(t *testing.T) {
+	pass := &Checks{Checks: []Check{{Name: "a", OK: true}, {Name: "b", OK: true, Detail: "8 tests"}}}
+	fail := &Checks{Checks: []Check{{Name: "a", OK: true}, {Name: "b", OK: false, Detail: "boom"}, {Name: "c", OK: false}}}
+	r := &Renderer{}
+	r.init()
+	if got := r.checks(pass, 60); len(got) != 1 || got[0] != "✔ 2/2 checks" {
+		t.Errorf("all pass: %q", got)
+	}
+	want := []string{"✘ 2/3 checks failed", "  ✘ b — boom", "  ✘ c"}
+	if got := r.checks(fail, 60); strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("some fail: %q, want %q", got, want)
+	}
+	r.AllChecks = true
+	want = []string{"✘ 2/3 checks failed", "  ✔ a", "  ✘ b — boom", "  ✘ c"}
+	if got := r.checks(fail, 60); strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("all checks: %q, want %q", got, want)
+	}
+	if got := r.checks(pass, 60); len(got) != 3 {
+		t.Errorf("all checks, all pass: %q", got)
 	}
 }

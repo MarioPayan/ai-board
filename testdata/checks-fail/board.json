@@ -1,0 +1,8 @@
+{
+  "title": "Checks some fail",
+  "status": { "state": "working", "text": "Verifying" },
+  "steps": [
+    { "text": "Implement", "state": "done", "started": "2026-10-26T15:00:00-05:00", "ended": "2026-10-26T15:20:00-05:00" },
+    { "text": "Run checks", "state": "active", "started": "2026-10-26T15:20:00-05:00" }
+  ]
+}

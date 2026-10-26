@@ -17,7 +17,7 @@ import (
 
 const usage = `usage:
   board [<session-id|dir>]                       watch and render
-  board --once [--width N] [--now RFC3339] [--expand] [<id>]
+  board --once [--width N] [--now RFC3339] [--expand] [--checks] [<id>]
                                                  render one frame without color
   board log [--kind K] <text>
   board agent start <id> <name> [--expect MIN]
@@ -56,6 +56,7 @@ func cmdView(args []string, stdout io.Writer) error {
 	width := fs.Int("width", 80, "width for --once")
 	nowS := fs.String("now", "", "fixed clock (RFC 3339)")
 	expand := fs.Bool("expand", false, "with --once, list every finished step")
+	checks := fs.Bool("checks", false, "with --once, list passing checks too")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -76,7 +77,7 @@ func cmdView(args []string, stdout io.Writer) error {
 		}
 	}
 	if *once {
-		fmt.Fprint(stdout, board.Once(board.Load(dir), *width, now, *expand))
+		fmt.Fprint(stdout, board.Once(board.Load(dir), *width, now, board.Options{Expand: *expand, AllChecks: *checks}))
 		return nil
 	}
 	return board.Run(dir, name)
