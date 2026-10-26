@@ -447,6 +447,9 @@ func (r *Renderer) section(sec Section, width int) []string {
 	return nil
 }
 
+// inlineCodeColor is ANSI cyan for `inline code` in the live styles.
+var inlineCodeColor = "6"
+
 func (r *Renderer) markdown(sec Section, width int) []string {
 	key := fmt.Sprintf("%d", width)
 	if r.mdGlam == nil || r.mdKey != key {
@@ -459,6 +462,11 @@ func (r *Renderer) markdown(sec Section, width int) []string {
 		}
 		// the standard styles pad inline code with a space on each side
 		style.Code.StylePrimitive.Prefix, style.Code.StylePrimitive.Suffix = "", ""
+		if r.Color {
+			// and paint it red (203) on grey, which reads like an error
+			style.Code.StylePrimitive.Color = &inlineCodeColor
+			style.Code.StylePrimitive.BackgroundColor = nil
+		}
 		g, err := glamour.NewTermRenderer(glamour.WithStyles(style), glamour.WithWordWrap(width-2))
 		if err != nil {
 			return []string{r.errLine(err.Error(), width)}

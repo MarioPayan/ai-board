@@ -81,6 +81,26 @@ func TestInlineCodeNoPadding(t *testing.T) {
 	}
 }
 
+// Inline code is cyan (ANSI 6) with no background in both live styles, not
+// Glamour's red on grey.
+func TestInlineCodeCyan(t *testing.T) {
+	sec := Section{Name: "10-x.md", Title: "X", Kind: "md", Body: []byte("run `go test` now\n")}
+	for _, dark := range []bool{true, false} {
+		r := &Renderer{Color: true, Dark: dark}
+		r.init()
+		got := strings.Join(r.markdown(sec, 80), "\n")
+		i := strings.Index(got, "go test")
+		if i < 0 {
+			t.Fatalf("dark=%v: no code in %q", dark, got)
+		}
+		// the escape sequence right before the code text
+		pre := got[strings.LastIndex(got[:i], "\x1b["):i]
+		if !strings.Contains(pre, "36") || strings.Contains(pre, "38;5;203") || strings.Contains(pre, "48;5;") {
+			t.Errorf("dark=%v: inline code styled %q, want cyan (36) and no background", dark, pre)
+		}
+	}
+}
+
 // The header separator must not run under a bar that has no header text.
 func TestTableSeparatorUnderHeadersOnly(t *testing.T) {
 	tb := &Table{

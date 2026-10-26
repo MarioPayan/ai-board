@@ -67,7 +67,7 @@ Files in `sections/`, ordered by file name. The title is the file name without t
 
 ### `*.md`
 
-Rendered with Glamour. Mermaid is not rendered; it shows as a code block.
+Rendered with Glamour. Mermaid is not rendered; it shows as a code block. Inline code has no padding; in the live viewer it is cyan with no background (both dark and light styles).
 
 ### `*.chart.json`
 
