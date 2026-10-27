@@ -27,10 +27,9 @@ type model struct {
 	w, h      int
 	showLog   bool
 	showHelp  bool
+	narrow    bool // w: the footer shows keys only
 	anchors   []int
 	top       string
-	topSyms   []string   // legend symbols in top
-	bodySyms  [][]string // legend symbols on each viewport line
 
 	watcher *fsnotify.Watcher
 	watched map[string]bool
@@ -122,18 +121,25 @@ func (m *model) layout() {
 	}
 	now := time.Now()
 	f := m.r.Render(m.snap, m.w, now)
-	m.top, m.anchors, m.topSyms, m.bodySyms = f.Top, f.Anchors, f.TopSyms, f.BodySyms
+	m.top, m.anchors = f.Top, f.Anchors
 	body := f.Body
 	switch {
 	case m.showHelp:
-		body, m.anchors, m.bodySyms = m.r.RenderHelp(m.w), nil, nil
+		body, m.anchors = m.r.RenderHelp(m.w), nil
 	case m.showLog:
-		body, m.bodySyms = m.r.RenderLog(m.snap, m.w)
-		m.anchors = nil
+		body, m.anchors = m.r.RenderLog(m.snap, m.w), nil
 	}
 	m.vp.Width = m.w
-	m.vp.Height = max(1, m.h-lipgloss.Height(m.top)-2) // legend and footer lines
+	m.vp.Height = max(1, m.h-lipgloss.Height(m.top)-1-m.legendLines()) // footer and legend lines
 	m.vp.SetContent(body)
+}
+
+// legendLines is 1 while `g` shows the legend line, otherwise 0.
+func (m *model) legendLines() int {
+	if m.r.Legend {
+		return 1
+	}
+	return 0
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -161,10 +167,17 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.vp.GotoTop()
 			m.layout()
 			return m, nil
-		case "?":
+		case "h":
 			m.showHelp, m.showLog = !m.showHelp, false
 			m.vp.GotoTop()
 			m.layout()
+			return m, nil
+		case "g":
+			m.r.Legend = !m.r.Legend
+			m.layout()
+			return m, nil
+		case "w":
+			m.narrow = !m.narrow
 			return m, nil
 		case "d":
 			m.r.Expand = !m.r.Expand
@@ -208,42 +221,80 @@ func (m *model) View() string {
 	if strings.TrimSpace(m.vp.View()) == "" && m.snap.Missing {
 		return m.top
 	}
-	return m.top + "\n" + m.vp.View() + "\n" + m.legend() + "\n" + m.footer()
-}
-
-// legend is one dim line naming the symbols on screen: in the fixed area and
-// on the viewport lines currently shown.
-func (m *model) legend() string {
-	syms := append([]string(nil), m.topSyms...)
-	for i := m.vp.YOffset; i < len(m.bodySyms) && i < m.vp.YOffset+m.vp.Height; i++ {
-		syms = append(syms, m.bodySyms[i]...)
+	v := m.top + "\n" + m.vp.View() + "\n"
+	if m.r.Legend {
+		v += m.r.LegendLine(m.w) + "\n"
 	}
-	return m.r.LegendLine(syms, m.w)
+	return v + m.footer()
 }
 
-// footer is one dim line: how many lines are below the viewport (when it
-// scrolls) and the keys, leaving out those that would do nothing.
-func (m *model) footer() string {
-	var keys []string
+// footKey is one footer key: what to press, what it does, and whether it
+// would do anything right now.
+type footKey struct {
+	key, label string
+	active     bool
+}
+
+// footGroup is a run of footer keys under a dim name.
+type footGroup struct {
+	name string
+	keys []footKey
+}
+
+// footerGroups is every footer key in its fixed place.
+func (m *model) footerGroups() []footGroup {
 	// tab only scrolls, so it does nothing when the whole body fits.
-	if len(m.anchors) > 1 && m.vp.TotalLineCount() > m.vp.Height {
-		keys = append(keys, "⇥ sections")
+	scrolls := m.vp.TotalLineCount() > m.vp.Height
+	return []footGroup{
+		{"move", []footKey{{"⇥", "sections", len(m.anchors) > 1 && scrolls}}},
+		{"view", []footKey{
+			{"d", "done", finishedSteps(m.snap) > collapseAbove},
+			{"a", "agents", len(m.snap.Agents) > agentsShown},
+			{"c", "checks", hasPassingCheck(m.snap)},
+			{"l", "log", true},
+			{"g", "legend", true},
+		}},
+		{"", []footKey{{"h", "help", true}, {"w", "narrow", true}, {"q", "", true}}},
 	}
-	if finishedSteps(m.snap) > collapseAbove {
-		keys = append(keys, "d done")
+}
+
+// footer is one line: every key in a fixed place, drawn darker when it
+// would do nothing, and on the right edge `↓ N` lines below the viewport,
+// `end` at the bottom, or nothing when the whole body fits. With narrow
+// (`w`), group names and labels are left out.
+func (m *model) footer() string {
+	var groups []string
+	for _, g := range m.footerGroups() {
+		var keys []string
+		for _, k := range g.keys {
+			t := k.key
+			if !m.narrow && k.label != "" {
+				t += " " + k.label
+			}
+			if !k.active {
+				t = m.r.st.off.Render(t)
+			}
+			keys = append(keys, t)
+		}
+		l := strings.Join(keys, "  ")
+		if m.narrow {
+			l = strings.Join(keys, " ")
+		} else if g.name != "" {
+			l = m.r.st.dim.Render(g.name) + " " + l
+		}
+		groups = append(groups, l)
 	}
-	if len(m.snap.Agents) > agentsShown {
-		keys = append(keys, "a agents")
+	var ind string
+	if total := m.vp.TotalLineCount(); total > m.vp.Height {
+		ind = "end"
+		if below := total - m.vp.YOffset - m.vp.Height; below > 0 {
+			ind = fmt.Sprintf("↓ %d", below)
+		}
 	}
-	if hasPassingCheck(m.snap) {
-		keys = append(keys, "c checks")
+	if ind != "" {
+		ind = m.r.st.dim.Render(ind)
 	}
-	keys = append(keys, "l log", "? help", "q")
-	l := strings.Join(keys, " · ")
-	if below := m.vp.TotalLineCount() - m.vp.YOffset - m.vp.Height; below > 0 {
-		l = fmt.Sprintf("↓ %d · %s", below, l)
-	}
-	return m.r.st.dim.Render(trunc(l, m.w))
+	return row(strings.Join(groups, m.r.st.dim.Render(" │ ")), ind, m.w)
 }
 
 func finishedSteps(s *Snapshot) int {

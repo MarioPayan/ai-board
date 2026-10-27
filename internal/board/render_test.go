@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -195,7 +196,11 @@ func TestBlankLinesBetweenSections(t *testing.T) {
 		t.Fatalf("no line starting %q in\n%s", prefix, got)
 		return -1
 	}
-	for _, h := range []string{"📋 Plan", "🔎 Details", "📜 Log"} {
+	// the fixed area ends with its rule, right above the first block
+	if i := idx("📋 Plan"); lines[i-1] != strings.Repeat("─", 40) || lines[i-2] == "" {
+		t.Errorf("want the rule and no blank line before the plan:\n%s", got)
+	}
+	for _, h := range []string{"🔎 Details", "📜 Log"} {
 		i := idx(h)
 		if lines[i-1] != "" || (i > 1 && lines[i-2] == "") {
 			t.Errorf("want exactly one blank line before %q:\n%s", h, got)
@@ -272,29 +277,133 @@ func TestAgentsCapped(t *testing.T) {
 		}
 		return s
 	}
+	// the header slots show the first three, sorted, and +N for the rest;
+	// a lists every agent
 	cases := []struct {
 		n, failed, over int
 		all             bool
 		lines           int
-		summary         string
+		first, summary  string
 	}{
-		{3, 0, 0, false, 3, ""},                   // fits: no summary
-		{8, 1, 2, false, 4, "🤖 +5 more"},          // over ones are shown, none hidden
-		{6, 2, 3, false, 4, "🤖 +3 more (2 over)"}, // 2 over pushed below the cut
-		{8, 1, 2, true, 8, ""},                    // all
+		{3, 0, 0, false, 3, "🤖  agent 2", ""},    // fits: no summary
+		{8, 1, 2, false, 3, "🔴  agent 0", " +5"}, // failed first, over ones shown, none hidden
+		{6, 2, 3, false, 3, "🔴  agent 1", " +3"}, // 2 over pushed below the cut
+		{8, 1, 2, true, 8, "🔴 agent 0", ""},      // all
 	}
 	for _, c := range cases {
-		got := r.agents(mk(c.n, c.failed, c.over), 80, now, c.all).lines
+		var got []string
+		if c.all {
+			got = r.agents(mk(c.n, c.failed, c.over), 80, now).lines
+		} else {
+			got = r.slots(mk(c.n, c.failed, c.over), 80, now)
+		}
 		if len(got) != c.lines {
 			t.Errorf("%+v: %d lines, want %d:\n%s", c, len(got), c.lines, strings.Join(got, "\n"))
 			continue
 		}
 		last := got[len(got)-1]
-		if c.summary != "" && last != c.summary {
-			t.Errorf("%+v: summary %q, want %q", c, last, c.summary)
+		if !strings.HasPrefix(got[0], c.first) {
+			t.Errorf("%+v: first %q, want %q", c, got[0], c.first)
 		}
-		if c.summary == "" && strings.Contains(last, "more") {
+		if c.summary != "" && !strings.HasSuffix(last, c.summary) {
+			t.Errorf("%+v: last %q, want it to end %q", c, last, c.summary)
+		}
+		if c.summary == "" && strings.Contains(last, "+") {
 			t.Errorf("%+v: unexpected summary %q", c, last)
+		}
+	}
+}
+
+// Slots fill in priority order: pending, failures (agents, then steps),
+// errors, running agents; the last row counts what did not fit.
+func TestSlotsPriority(t *testing.T) {
+	now := time.Date(2026, 10, 26, 14, 0, 0, 0, time.UTC)
+	r := &Renderer{}
+	r.init()
+	full := &Snapshot{
+		Board: BoardFile{
+			Pending: []Pending{{Text: "approve", Link: "https://x"}},
+			Steps:   []Step{{Text: "hook", State: "failed", Note: "blocked"}, {Text: "ok", State: "done"}},
+		},
+		BoardErr: fmt.Errorf("board.json: bad"),
+		Agents:   []Agent{{ID: "r", Name: "runner", Started: now.Add(-time.Minute)}, {ID: "f", Name: "broken", Failed: true}},
+	}
+	cases := []struct {
+		name string
+		edit func(s *Snapshot)
+		want []string // row prefixes
+		more string   // the last row's suffix, "" for none
+	}{
+		{"all categories", func(*Snapshot) {}, []string{"📥  approve", "🔴  broken", "✘   hook"}, " +2"},
+		{"no pending", func(s *Snapshot) { s.Board.Pending = nil }, []string{"🔴  broken", "✘   hook", "⚠   board.json: bad"}, " +1"},
+		{"only error and agent", func(s *Snapshot) { s.Board.Pending, s.Board.Steps, s.Agents = nil, nil, s.Agents[:1] },
+			[]string{"⚠   board.json: bad", "🤖  runner", "📥  nothing on you"}, ""},
+		{"only running", func(s *Snapshot) { s.Board.Pending, s.Board.Steps, s.BoardErr, s.Agents = nil, nil, nil, s.Agents[:1] },
+			[]string{"🤖  runner", "📥  nothing on you", "🔴  no failures"}, ""},
+		{"nothing", func(s *Snapshot) { *s = Snapshot{} },
+			[]string{"📥  nothing on you", "🔴  no failures", "🤖  no agents running"}, ""},
+	}
+	for _, c := range cases {
+		s := *full
+		s.Board.Pending = append([]Pending(nil), full.Board.Pending...)
+		c.edit(&s)
+		got := r.slots(&s, 80, now)
+		if len(got) != len(c.want) {
+			t.Errorf("%s: %d rows, want %d:\n%s", c.name, len(got), len(c.want), strings.Join(got, "\n"))
+			continue
+		}
+		for i, w := range c.want {
+			if !strings.HasPrefix(got[i], w) {
+				t.Errorf("%s: row %d = %q, want %q…", c.name, i, got[i], w)
+			}
+		}
+		if last := got[len(got)-1]; c.more != "" && !strings.HasSuffix(last, c.more) || c.more == "" && strings.Contains(last, " +") {
+			t.Errorf("%s: last row %q, want suffix %q", c.name, last, c.more)
+		}
+	}
+	// pending rows: link as detail, `on you` on the right, no ┃ bar
+	got := r.slots(full, 80, now)[0]
+	if strings.Contains(got, "┃") || !strings.Contains(got, "approve  https://x") || !strings.HasSuffix(got, "on you") {
+		t.Errorf("pending row = %q", got)
+	}
+}
+
+// The fixed area is always six lines, the counts always all four.
+func TestHeaderShape(t *testing.T) {
+	now := time.Date(2026, 10, 26, 14, 0, 0, 0, time.UTC)
+	for _, s := range []*Snapshot{
+		{},
+		{Status: Status{State: "done", Text: "ok"}},
+		{Board: BoardFile{Pending: []Pending{{Text: "a"}, {Text: "b"}, {Text: "c"}, {Text: "d"}}}, Agents: []Agent{{Name: "x"}}},
+	} {
+		r := &Renderer{}
+		top := strings.Split(r.Render(s, 60, now).Top, "\n")
+		if len(top) != 6 || top[5] != strings.Repeat("─", 60) {
+			t.Errorf("fixed area is %d lines, want 6 ending in a rule:\n%s", len(top), strings.Join(top, "\n"))
+		}
+		if !strings.HasPrefix(top[0], "⚪ (untitled)") && !strings.HasPrefix(top[0], "🟢 (untitled)") {
+			t.Errorf("title line = %q", top[0])
+		}
+	}
+	r := &Renderer{}
+	top := strings.Split(r.Render(&Snapshot{}, 60, now).Top, "\n")
+	if !strings.HasPrefix(top[1], "   ") || !strings.HasSuffix(top[1], "📥0 🔴0 🤖0 ⚠0") {
+		t.Errorf("zero counts should stay: %q", top[1])
+	}
+}
+
+// A zero count is drawn in the darker style; a non-zero one is not.
+func TestZeroCountsDarker(t *testing.T) {
+	withColor(t)
+	r := &Renderer{Color: true}
+	r.init()
+	got := r.counts(&Snapshot{Board: BoardFile{Pending: []Pending{{Text: "a"}}}}, lipgloss.Style{})
+	if strings.Contains(got, r.st.off.Render("📥1")) || !strings.Contains(got, "📥1") {
+		t.Errorf("non-zero count drawn darker: %q", got)
+	}
+	for _, z := range []string{"🔴0", "🤖0", "⚠0"} {
+		if !strings.Contains(got, r.st.off.Render(z)) {
+			t.Errorf("zero count %s not darker: %q", z, got)
 		}
 	}
 }

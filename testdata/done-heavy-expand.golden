@@ -1,6 +1,9 @@
-Board visual pass                                             ⏱ 1h28m · ↻ 3m ago
-🔵 Rendering goldens  █████░░░░░ 5/10
-
+🔵 Board visual pass                                          ⏱ 1h28m · ↻ 3m ago
+   Rendering goldens  █████░░░░░ 5/10                             📥0 🔴1 🤖0 ⚠0
+✘   Commit  pre-commit hook rejected gofmt
+📥  nothing on you
+🤖  no agents running
+────────────────────────────────────────────────────────────────────────────────
 📋 Plan ────────────────────────────────────────────────────────────────────────
 ✔  Read SPEC.md and README.md                                                 4m
 ✔  Write failing unit tests                                                   9m

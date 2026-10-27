@@ -1,10 +1,9 @@
-Board TUI                                                     ⏱ 1h00m · ↻ 3m ago
-🟡 Esperando tu OK  ███░░░░░░░ 2/6
-┃ 📥 Aprobar el layout  https://claude.ai/artifact/demo
-🔴 codex review                                                     failed 13:40
-🤖 repo-worker: TUI                                      ██████████ 40m/30m over
-🤖 Explore: hooks (retry)                                                    10m
-
+🟡 Board TUI                                                  ⏱ 1h00m · ↻ 3m ago
+   Esperando tu OK  ███░░░░░░░ 2/6                                📥1 🔴2 🤖2 ⚠2
+📥  Aprobar el layout  https://claude.ai/artifact/demo                    on you
+🔴  codex review                                                    failed 13:40
+✘   Instalar el hook   settings.json bloqueado                                +2
+────────────────────────────────────────────────────────────────────────────────
 📋 Plan ────────────────────────────────────────────────────────────────────────
 ✔  Escribir SPEC.md                                                          15m
 ✔  Spike de layout descartado — Glamour basta
@@ -37,4 +36,4 @@ Roto
 13:31 ◆ a3f9c1e feat: render tables
 ⚠ log.jsonl:5: invalid character 'o' in literal null (expecting 'u')
 
-🟡 on you · 🟣 external · ✘ failed · ○ todo · ✔ done · ⏱ elapsed · ↻ updated · …
+▶ active · 🟡 on you · 🟣 external · ✘ failed · ○ todo · ✔ done

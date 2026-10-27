@@ -12,16 +12,16 @@ import (
 )
 
 func TestModelDoneToggleAndFooter(t *testing.T) {
-	m := &model{r: &Renderer{}, snap: Load(filepath.Join("..", "..", "testdata", "done-heavy")), vp: viewport.New(80, 10)}
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 12})
+	m := &model{r: &Renderer{}, snap: Load(filepath.Join("..", "..", "testdata", "done-heavy")), vp: viewport.New(120, 10)}
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 12})
 	view := ansi.Strip(m.View())
 	lines := strings.Split(view, "\n")
 	if len(lines) != 12 {
 		t.Errorf("view is %d lines, want the window's 12:\n%s", len(lines), view)
 	}
-	foot := lines[len(lines)-1]
-	if !strings.HasPrefix(foot, "↓ ") || !strings.HasSuffix(foot, "⇥ sections · d done · l log · ? help · q") {
-		t.Errorf("footer = %q", foot)
+	keys, ind := footerKeys(m)
+	if !strings.HasPrefix(ind, "↓ ") || keys != fullFooter || !m.footerGroups()[0].keys[0].active || !m.footerGroups()[1].keys[0].active {
+		t.Errorf("footer = %q %q, want every key, ⇥ and d active, and ↓ N", keys, ind)
 	}
 	if !strings.Contains(view, "· last:") {
 		t.Errorf("finished steps should start collapsed:\n%s", view)
@@ -33,10 +33,10 @@ func TestModelDoneToggleAndFooter(t *testing.T) {
 		t.Errorf("d should expand finished steps:\n%s", view)
 	}
 
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 60}) // everything fits: no ↓ and no ⇥ (tab would not scroll)
-	lines = strings.Split(ansi.Strip(m.View()), "\n")
-	if foot := lines[len(lines)-1]; foot != "d done · l log · ? help · q" {
-		t.Errorf("footer without scroll = %q", foot)
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 60}) // everything fits: no ↓ and ⇥ idle (tab would not scroll)
+	keys, ind = footerKeys(m)
+	if ind != "" || keys != fullFooter || m.footerGroups()[0].keys[0].active || !m.footerGroups()[1].keys[0].active {
+		t.Errorf("footer without scroll = %q %q, want every key, ⇥ idle, d active, no indicator", keys, ind)
 	}
 }
 
@@ -53,25 +53,25 @@ func TestModelChecksToggle(t *testing.T) {
 	}
 }
 
-// a moves the full agent list into the scrolling body, so the fixed area
-// never grows with the number of agents.
+// a lists every agent in the scrolling body; the fixed area keeps its six
+// lines and its top three items whatever the number of agents.
 func TestModelAgentsToggle(t *testing.T) {
 	m := &model{r: &Renderer{}, snap: Load(filepath.Join("..", "..", "testdata", "agents-many")), vp: viewport.New(80, 10)}
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 14})
-	if !strings.Contains(ansi.Strip(m.top), "🤖 +5 more") || strings.Count(m.top, "\n") != 6 {
-		t.Errorf("collapsed: want 3 agents and a summary in the fixed area:\n%s", ansi.Strip(m.top))
+	collapsed := ansi.Strip(m.top)
+	if !strings.HasSuffix(strings.Split(collapsed, "\n")[4], " +5") || lipgloss.Height(m.top) != 6 {
+		t.Errorf("collapsed: want 3 items and +5 in a 6-line fixed area:\n%s", collapsed)
 	}
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
-	top := ansi.Strip(m.top)
-	if strings.Contains(top, "reviewer") || strings.Contains(top, "more") {
-		t.Errorf("expanded: agents should leave the fixed area:\n%s", top)
+	if top := ansi.Strip(m.top); top != collapsed {
+		t.Errorf("expanded: the fixed area should not change:\n%s", top)
 	}
 	view := ansi.Strip(m.View())
 	if !strings.Contains(view, "🤖 Agents") || lipgloss.Height(m.View()) != 14 {
 		t.Errorf("expanded: agents heading in the body, view still 14 lines:\n%s", view)
 	}
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
-	if !strings.Contains(ansi.Strip(m.top), "🤖 +5 more") {
-		t.Errorf("a again should collapse:\n%s", ansi.Strip(m.top))
+	if strings.Contains(ansi.Strip(m.View()), "🤖 Agents") {
+		t.Errorf("a again should take the list out of the body:\n%s", ansi.Strip(m.View()))
 	}
 }

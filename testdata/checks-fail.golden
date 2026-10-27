@@ -1,6 +1,9 @@
-Checks some fail                                                ⏱ 30m · ↻ 3m ago
-🔵 Verifying  █████░░░░░ 1/2
-
+🔵 Checks some fail                                             ⏱ 30m · ↻ 3m ago
+   Verifying  █████░░░░░ 1/2                                      📥0 🔴0 🤖0 ⚠0
+📥  nothing on you
+🔴  no failures
+🤖  no agents running
+────────────────────────────────────────────────────────────────────────────────
 📋 Plan ────────────────────────────────────────────────────────────────────────
 ✔  Implement                                                                 20m
 ▶  Run checks                                                              ⏱ 10m

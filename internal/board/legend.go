@@ -6,7 +6,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// legendItems is every symbol the legend can name, in legend order.
+// legendItems are the plan markers the legend line names, in order.
 var legendItems = []struct{ sym, label string }{
 	{"▶", "active"},
 	{"🟡", "on you"},
@@ -14,34 +14,16 @@ var legendItems = []struct{ sym, label string }{
 	{"✘", "failed"},
 	{"○", "todo"},
 	{"✔", "done"},
-	{"⏱", "elapsed"},
-	{"↻", "updated"},
-	{"◆", "commit"},
-	{"•", "note"},
-	{"↗", "link"},
-	{"📥", "pending"},
-	{"🤖", "agent"},
-	{"🔴", "failed/blocked"},
-	{"🔵", "working"},
-	{"🟢", "finished"},
-	{"⚠", "stale/error"},
 }
 
-// LegendLine is one dim line naming each symbol in syms, in legend order,
-// as `▶ active · ✔ done · …`. Entries that do not fit in width are dropped
-// from the end, leaving a trailing `…`. It is "" when syms holds none.
-func (r *Renderer) LegendLine(syms []string, width int) string {
+// LegendLine is the fixed dim legend line, `▶ active · 🟡 on you · …`.
+// Entries that do not fit in width are dropped from the end, leaving a
+// trailing `…`.
+func (r *Renderer) LegendLine(width int) string {
 	r.init()
-	seen := map[string]bool{}
-	for _, s := range syms {
-		seen[s] = true
-	}
 	const sep = " · "
 	var out string
 	for _, it := range legendItems {
-		if !seen[it.sym] {
-			continue
-		}
 		entry := it.sym + " " + it.label
 		next := entry
 		if out != "" {
@@ -56,7 +38,7 @@ func (r *Renderer) LegendLine(syms []string, width int) string {
 	return r.st.dim.Render(out)
 }
 
-// RenderHelp is the full-screen `?` help: every marker, icon, colour and key.
+// RenderHelp is the full-screen `h` help: every marker, icon, colour and key.
 func (r *Renderer) RenderHelp(width int) string {
 	r.init()
 	var lines []string
@@ -84,16 +66,20 @@ func (r *Renderer) RenderHelp(width int) string {
 	item("🔵", "working")
 	item("🟡", "waiting on you")
 	item("🔴", "blocked")
-	item("🟢", "done: a green band, bar full")
+	item("🟢", "done: the status line is a green band, bar full")
+	item("⚪", "no status")
 
-	sub("Header, pending and agents")
+	sub("Header")
 	item("⏱", "elapsed since the first step started")
 	item("↻", "updated: time since the last write")
 	item(r.st.err.Render("⚠"), "stale (working, no write for 10 min) or a file that failed to parse")
-	item(r.st.pendBar.Render("┃")+" 📥", "pending on you, with its link")
-	item("🤖", "running agent: elapsed, or a bar of elapsed against expected")
+	item("📥N", "status line counts: 📥 on you, 🔴 failures (agents, steps), 🤖 running, ⚠ errors")
+	item("📥", "pending on you, with its link")
 	item("🔴", "failed agent, with the time it stopped")
-	item("🤖 +N", "agents beyond the first three (M over: past their expected time)")
+	item(r.st.err.Render("✘"), "failed step, with its note")
+	item("🤖", "running agent: elapsed, or a bar of elapsed against expected")
+	item("+N", "more items than the three rows hold (a: every agent)")
+	item(r.st.off.Render("📥"), "darker: a zero count, an empty row, a key that does nothing now")
 
 	sub("Checks")
 	item(r.st.ok.Render("✔"), "all checks pass")
@@ -121,7 +107,9 @@ func (r *Renderer) RenderHelp(width int) string {
 	item("a", "list every agent or the first three")
 	item("c", "list every check or only the failing ones")
 	item("l", "full-screen log")
-	item("?", "this help")
+	item("g", "show or hide the legend line")
+	item("h", "this help")
+	item("w", "narrow footer: keys only")
 	item("q", "quit")
 	return strings.Join(lines, "\n")
 }

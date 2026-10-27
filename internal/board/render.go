@@ -34,7 +34,7 @@ type Options struct {
 	Expand    bool // d, --expand: list every finished step instead of the collapsed summary
 	AllChecks bool // c, --checks: list passing checks too, not only failing ones
 	AllAgents bool // a, --agents: list every agent (in the body when more than agentsShown)
-	Legend    bool // --legend: end a --once frame with the legend line
+	Legend    bool // g, --legend: show the fixed plan-marker legend line
 }
 
 // Colours are ANSI 16-colour indices so the terminal theme decides the shade.
@@ -42,7 +42,7 @@ type styles struct {
 	title, dim, bold, rule, err, bar, barOver lipgloss.Style
 	done, skipped, accent, active, failed     lipgloss.Style
 	noteWaiting, noteFailed, noteExternal     lipgloss.Style
-	pendBar, doneBand, ok                     lipgloss.Style
+	off, doneBand, ok                         lipgloss.Style
 }
 
 // staleAfter is how old the newest file may be while the status is
@@ -81,7 +81,7 @@ func (r *Renderer) init() {
 		noteWaiting:  s().Foreground(c("3")),
 		noteFailed:   s().Foreground(c("1")),
 		noteExternal: s().Foreground(c("5")),
-		pendBar:      s().Foreground(c("3")).Bold(true),
+		off:          s().Foreground(c("8")).Faint(true), // darker than dim: zero counts, empty slots, idle keys
 		doneBand:     s().Background(c("2")).Foreground(c("0")).Bold(true),
 		ok:           s().Foreground(c("2")),
 	}
@@ -90,39 +90,23 @@ func (r *Renderer) init() {
 
 // Frame is a rendered board: Top stays fixed, Body scrolls. Anchors are the
 // Body line numbers that tab/shift+tab jump between: Agents (when in the
-// body), Plan, each Details subsection and Log. TopSyms and BodySyms are the
-// legend symbols drawn in Top and on each Body line, so the legend can name
-// only what is on screen.
+// body), Plan, each Details subsection and Log.
 type Frame struct {
-	Top      string
-	Body     string
-	Anchors  []int
-	TopSyms  []string
-	BodySyms [][]string
+	Top     string
+	Body    string
+	Anchors []int
 }
 
-// block is rendered lines plus the legend symbols each one draws.
+// block is a list of rendered lines.
 type block struct {
 	lines []string
-	syms  [][]string
 }
 
-func (b *block) add(line string, syms ...string) {
-	b.lines = append(b.lines, line)
-	b.syms = append(b.syms, syms)
-}
+func (b *block) add(line string) { b.lines = append(b.lines, line) }
 
-// addAll appends lines that draw no legend symbol (Markdown, charts, tables).
-func (b *block) addAll(lines []string) {
-	for _, l := range lines {
-		b.add(l)
-	}
-}
+func (b *block) addAll(lines []string) { b.lines = append(b.lines, lines...) }
 
-func (b *block) cat(o block) {
-	b.lines = append(b.lines, o.lines...)
-	b.syms = append(b.syms, o.syms...)
-}
+func (b *block) cat(o block) { b.lines = append(b.lines, o.lines...) }
 
 // Render renders the snapshot at the given width and clock.
 func (r *Renderer) Render(s *Snapshot, width int, now time.Time) Frame {
@@ -133,15 +117,11 @@ func (r *Renderer) Render(s *Snapshot, width int, now time.Time) Frame {
 	if s.Missing {
 		return Frame{Top: r.st.dim.Render("⏳ waiting for " + s.Dir)}
 	}
-	var top block
-	top.cat(r.header(s, width, now))
-	top.cat(r.pending(s, width))
-	if s.BoardErr != nil {
-		top.add(r.errLine(s.BoardErr.Error(), width), "⚠")
-	}
-	if !r.agentsInBody(s) {
-		top.cat(r.agents(s, width, now, false))
-	}
+	// the fixed area always has the same six lines: title, status, three
+	// slots and a rule
+	top := r.header(s, width, now)
+	top.addAll(r.slots(s, width, now))
+	top.add(r.st.rule.Render(strings.Repeat("─", width)))
 
 	var body block
 	var anchors []int
@@ -156,7 +136,7 @@ func (r *Renderer) Render(s *Snapshot, width int, now time.Time) Frame {
 	}
 	if r.agentsInBody(s) {
 		heading("🤖", "Agents")
-		body.cat(r.agents(s, width, now, true))
+		body.cat(r.agents(s, width, now))
 	}
 	if len(s.Board.Steps) > 0 {
 		heading("📋", "Plan")
@@ -175,31 +155,20 @@ func (r *Renderer) Render(s *Snapshot, width int, now time.Time) Frame {
 		heading("📜", "Log")
 		body.cat(log)
 	}
-	if len(body.lines) > 0 {
-		top.add("") // a blank line between the fixed area and the body
-	}
-	var topSyms []string
-	for _, ss := range top.syms {
-		topSyms = append(topSyms, ss...)
-	}
-	return Frame{
-		Top: strings.Join(top.lines, "\n"), Body: strings.Join(body.lines, "\n"), Anchors: anchors,
-		TopSyms: topSyms, BodySyms: body.syms,
-	}
+	return Frame{Top: strings.Join(top.lines, "\n"), Body: strings.Join(body.lines, "\n"), Anchors: anchors}
 }
 
-// RenderLog renders the full log for the `l` view, with the legend symbols
-// of each line.
-func (r *Renderer) RenderLog(s *Snapshot, width int) (string, [][]string) {
+// RenderLog renders the full log for the `l` view.
+func (r *Renderer) RenderLog(s *Snapshot, width int) string {
 	r.init()
 	var b block
 	b.add(r.heading("📜", "Log", width))
 	b.cat(r.logLines(s, width, 0))
-	return strings.Join(b.lines, "\n"), b.syms
+	return strings.Join(b.lines, "\n")
 }
 
 // Once renders a single uncolored frame as plain text. With o.Legend it ends
-// with the legend of every symbol in the frame.
+// with the fixed legend line.
 func Once(s *Snapshot, width int, now time.Time, o Options) string {
 	r := &Renderer{Options: o}
 	f := r.Render(s, width, now)
@@ -208,14 +177,8 @@ func Once(s *Snapshot, width int, now time.Time, o Options) string {
 		out += "\n" + f.Body
 	}
 	out = strings.TrimRight(out, "\n")
-	if o.Legend {
-		syms := f.TopSyms
-		for _, ss := range f.BodySyms {
-			syms = append(syms, ss...)
-		}
-		if l := r.LegendLine(syms, width); l != "" {
-			out += "\n\n" + l
-		}
+	if o.Legend && !s.Missing {
+		out += "\n\n" + r.LegendLine(width)
 	}
 	return out + "\n"
 }
@@ -229,18 +192,22 @@ func (r *Renderer) header(s *Snapshot, width int, now time.Time) block {
 	if title == "" {
 		title = "(untitled)"
 	}
-	var right, syms []string
+	var right []string
 	if el, ok := elapsed(s, now); ok {
-		right, syms = append(right, r.st.dim.Render("⏱ "+fmtDur(el))), append(syms, "⏱")
+		right = append(right, r.st.dim.Render("⏱ "+fmtDur(el)))
 	}
 	switch {
 	case isStale(s, now):
-		right, syms = append(right, r.st.err.Render("⚠ stale "+ago(now.Sub(s.Updated)))), append(syms, "⚠")
+		right = append(right, r.st.err.Render("⚠ stale "+ago(now.Sub(s.Updated))))
 	case !s.Updated.IsZero():
-		right, syms = append(right, r.st.dim.Render("↻ "+ago(now.Sub(s.Updated)))), append(syms, "↻")
+		right = append(right, r.st.dim.Render("↻ "+ago(now.Sub(s.Updated))))
+	}
+	em := statusEmoji[s.Status.State]
+	if em == "" {
+		em = "⚪"
 	}
 	var b block
-	b.add(row(r.st.title.Render(title), strings.Join(right, r.st.dim.Render(" · ")), width), syms...)
+	b.add(row(em+" "+r.st.title.Render(title), strings.Join(right, r.st.dim.Render(" · ")), width))
 
 	done := 0
 	for _, st := range s.Board.Steps {
@@ -256,21 +223,58 @@ func (r *Renderer) header(s *Snapshot, width int, now time.Time) block {
 	count := fmt.Sprintf(" %d/%d", done, total)
 	if s.Status.State == "done" {
 		// a green band: the work is over, whatever the step list says
-		l := trunc("🟢 "+s.Status.Text+"  "+meter(1, 10)+count, width)
-		if r.Color {
-			l += strings.Repeat(" ", max(0, width-ansi.StringWidth(l)))
-		}
-		b.add(r.st.doneBand.Render(l), "🟢")
+		band := r.st.doneBand
+		counts := r.counts(s, band)
+		cw := ansi.StringWidth(counts)
+		left := trunc("   "+s.Status.Text+"  "+meter(1, 10)+count, width-cw-2)
+		gap := max(0, width-ansi.StringWidth(left)-cw)
+		b.add(band.Render(left+strings.Repeat(" ", gap)) + counts)
 		return b
 	}
-	em := statusEmoji[s.Status.State]
-	sym := em
-	if em == "" {
-		em = "⚪"
-	}
-	l := em + " " + r.st.bold.Render(s.Status.Text) + "  " + r.st.bar.Render(meter(frac, 10)) + count
-	b.add(trunc(l, width), sym)
+	l := "   " + r.st.bold.Render(s.Status.Text) + "  " + r.st.bar.Render(meter(frac, 10)) + count
+	b.add(row(l, r.counts(s, lipgloss.Style{}), width))
 	return b
+}
+
+// counts is `📥N 🔴N 🤖N ⚠N`: items on you, failures (failed agents and
+// steps), running agents and errors (board.json and every parse error). A
+// zero count is drawn darker, never left out, so the line keeps its shape.
+// Every part inherits base.
+func (r *Renderer) counts(s *Snapshot, base lipgloss.Style) string {
+	failed, running := 0, 0
+	for _, a := range s.Agents {
+		if a.Failed {
+			failed++
+		} else {
+			running++
+		}
+	}
+	for _, st := range s.Board.Steps {
+		if st.State == "failed" {
+			failed++
+		}
+	}
+	errs := len(s.AgentErrs) + len(s.LogErrs)
+	if s.BoardErr != nil {
+		errs++
+	}
+	for _, sec := range s.Sections {
+		if sec.Err != nil {
+			errs++
+		}
+	}
+	var parts []string
+	for _, c := range []struct {
+		icon string
+		n    int
+	}{{"📥", len(s.Board.Pending)}, {"🔴", failed}, {"🤖", running}, {"⚠", errs}} {
+		st := base
+		if c.n == 0 {
+			st = r.st.off.Inherit(base)
+		}
+		parts = append(parts, st.Render(fmt.Sprintf("%s%d", c.icon, c.n)))
+	}
+	return strings.Join(parts, base.Render(" "))
 }
 
 // isStale reports whether a `working` board has not been written to for more
@@ -307,21 +311,111 @@ func elapsed(s *Snapshot, now time.Time) (time.Duration, bool) {
 	return end.Sub(first), true
 }
 
-func (r *Renderer) pending(s *Snapshot, width int) block {
-	var b block
-	for _, p := range s.Board.Pending {
-		l := r.st.pendBar.Render("┃") + " 📥 " + r.st.bold.Render(p.Text)
-		if p.Link != "" {
-			l += "  " + r.st.dim.Render(p.Link)
-		}
-		b.add(trunc(l, width), "📥")
-	}
-	return b
+// agentsShown is the number of header slots: rows for what needs attention,
+// whatever the board holds. The `a` key lists every agent in the body when
+// there are more agents than this.
+const agentsShown = 3
+
+// slot is one header row: a table of icon | item | detail | right.
+type slot struct {
+	icon, item, detail, right string
+	iconSt, itemSt, detailSt  lipgloss.Style
 }
 
-// agentsShown is how many agents the fixed area lists before the rest
-// collapse into one `🤖 +N more` line.
-const agentsShown = 3
+// slots renders exactly agentsShown header rows, filled in priority order:
+// pending items, failures (failed agents, then failed steps), errors
+// (board.json, agents.jsonl), running agents. When there are more items the
+// last row ends with a dim `+N`; when fewer, the free rows say, darker, which
+// of pending, failures and agents is empty.
+func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
+	var items []slot
+	for _, p := range s.Board.Pending {
+		items = append(items, slot{icon: "📥", item: p.Text, detail: p.Link, right: r.st.noteWaiting.Render("on you"), itemSt: r.st.bold, detailSt: r.st.dim})
+	}
+	nPending := len(items)
+	agents := sortAgents(s.Agents, now) // failed first
+	nRunning := 0
+	for _, a := range agents {
+		if a.Failed {
+			items = append(items, r.agentSlot(a, now))
+		} else {
+			nRunning++
+		}
+	}
+	for _, st := range s.Board.Steps {
+		if st.State == "failed" {
+			items = append(items, slot{icon: "✘", item: st.Text, detail: st.Note, iconSt: r.st.err, itemSt: r.st.failed, detailSt: r.st.noteFailed})
+		}
+	}
+	nFailed := len(items) - nPending
+	var errs []string
+	if s.BoardErr != nil {
+		errs = append(errs, s.BoardErr.Error())
+	}
+	for _, e := range append(errs, s.AgentErrs...) {
+		items = append(items, slot{icon: "⚠", item: e, iconSt: r.st.err, itemSt: r.st.err})
+	}
+	for _, a := range agents[len(agents)-nRunning:] {
+		items = append(items, r.agentSlot(a, now))
+	}
+	if n := len(items) - agentsShown; n > 0 {
+		items = items[:agentsShown]
+		last := &items[agentsShown-1]
+		last.right = strings.TrimSpace(last.right + " " + r.st.dim.Render(fmt.Sprintf("+%d", n)))
+	}
+
+	// column widths: icons are two cells, the right column is right-aligned
+	// at the edge, the item column is as wide as its widest entry and the
+	// detail column takes what is left
+	var iw, dw, rw int
+	for _, it := range items {
+		iw = max(iw, ansi.StringWidth(it.item))
+		dw = max(dw, ansi.StringWidth(it.detail))
+		rw = max(rw, ansi.StringWidth(it.right))
+	}
+	rw = min(rw, width/2)
+	room := width - 4 // icon and gap
+	if rw > 0 {
+		room -= rw + 2
+	}
+	if dw > 0 {
+		iw = min(iw, max(room/2, room-2-dw))
+	}
+	iw = min(iw, room)
+	var out []string
+	for _, it := range items {
+		l := it.iconSt.Render(pad(it.icon, 2, false)) + "  " + it.itemSt.Render(pad(it.item, iw, false))
+		if d := room - iw - 2; it.detail != "" && d > 0 {
+			l += "  " + it.detailSt.Render(trunc(it.detail, d))
+		}
+		if it.right != "" {
+			right := ansi.Truncate(it.right, rw, "…")
+			l += strings.Repeat(" ", max(0, width-ansi.StringWidth(l)-ansi.StringWidth(right))) + right
+		}
+		out = append(out, strings.TrimRight(l, " "))
+	}
+	for _, e := range []struct {
+		icon, text string
+		empty      bool
+	}{{"📥", "nothing on you", nPending == 0}, {"🔴", "no failures", nFailed == 0}, {"🤖", "no agents running", nRunning == 0}} {
+		if e.empty && len(out) < agentsShown {
+			out = append(out, r.st.off.Render(trunc(e.icon+"  "+e.text, width)))
+		}
+	}
+	return out
+}
+
+// agentSlot is a header row for a failed or running agent.
+func (r *Renderer) agentSlot(a Agent, now time.Time) slot {
+	if a.Failed {
+		right := r.st.err.Render("failed")
+		if !a.Stopped.IsZero() {
+			right += " " + a.Stopped.Format("15:04")
+		}
+		return slot{icon: "🔴", item: a.Name, right: right}
+	}
+	return slot{icon: "🤖", item: a.Name, right: r.agentTime(a, now)}
+}
 
 func agentElapsed(a Agent, now time.Time) time.Duration {
 	if a.Started.IsZero() {
@@ -357,70 +451,44 @@ func sortAgents(in []Agent, now time.Time) []Agent {
 	return out
 }
 
-// agentsInBody reports whether the agent list moves from the fixed area
-// into the scrolling body: only when expanded and it would not fit.
+// agentsInBody reports whether `a` lists every agent in the scrolling body:
+// only when there are more than the header slots could hold.
 func (r *Renderer) agentsInBody(s *Snapshot) bool {
 	return r.AllAgents && len(s.Agents) > agentsShown
 }
 
-// agents renders the sorted agent list: every agent when all is set,
-// otherwise the first agentsShown and a `🤖 +N more (M over)` line for the
-// rest, M counting the hidden ones over their expected time.
-func (r *Renderer) agents(s *Snapshot, width int, now time.Time, all bool) block {
-	agents := sortAgents(s.Agents, now)
-	var hidden []Agent
-	if !all && len(agents) > agentsShown {
-		agents, hidden = agents[:agentsShown], agents[agentsShown:]
-	}
+// agents renders every agent, sorted, one per line, then any agents.jsonl
+// parse errors.
+func (r *Renderer) agents(s *Snapshot, width int, now time.Time) block {
 	var b block
-	for _, a := range agents {
-		b.add(r.agentLine(a, width, now))
-	}
-	if len(hidden) > 0 {
-		over := 0
-		for _, a := range hidden {
-			if agentOver(a, now) {
-				over++
-			}
-		}
-		l := fmt.Sprintf("🤖 +%d more", len(hidden))
-		if over > 0 {
-			l += fmt.Sprintf(" (%d over)", over)
-		}
-		b.add(r.st.dim.Render(trunc(l, width)), "🤖")
+	for _, a := range sortAgents(s.Agents, now) {
+		sl := r.agentSlot(a, now)
+		b.add(row(sl.icon+" "+sl.item, sl.right, width))
 	}
 	for _, e := range s.AgentErrs {
-		b.add(r.errLine(e, width), "⚠")
+		b.add(r.errLine(e, width))
 	}
 	return b
 }
 
-func (r *Renderer) agentLine(a Agent, width int, now time.Time) (string, string) {
-	var marker, right string
-	if a.Failed {
-		marker = "🔴"
-		right = r.st.err.Render("failed")
-		if !a.Stopped.IsZero() {
-			right += " " + a.Stopped.Format("15:04")
-		}
-	} else {
-		marker = "🤖"
-		el := agentElapsed(a, now)
-		right = fmtDur(el)
-		if a.ExpectMin > 0 {
-			exp := time.Duration(a.ExpectMin * float64(time.Minute))
-			frac := float64(el) / float64(exp)
-			bs := r.st.bar
-			if frac > 1 {
-				bs = r.st.barOver
-			}
-			right = bs.Render(meter(frac, 10)) + " " + fmtDur(el) + "/" + fmtDur(exp)
-			if frac > 1 {
-				right += " " + r.st.err.Render("over")
-			}
-		}
+// agentTime is a running agent's elapsed time or, with an expected time, a
+// bar of elapsed against expected, marked `over` once exceeded.
+func (r *Renderer) agentTime(a Agent, now time.Time) string {
+	el := agentElapsed(a, now)
+	if a.ExpectMin <= 0 {
+		return fmtDur(el)
 	}
-	return row(marker+" "+a.Name, right, width), marker
+	exp := time.Duration(a.ExpectMin * float64(time.Minute))
+	frac := float64(el) / float64(exp)
+	bs := r.st.bar
+	if frac > 1 {
+		bs = r.st.barOver
+	}
+	right := bs.Render(meter(frac, 10)) + " " + fmtDur(el) + "/" + fmtDur(exp)
+	if frac > 1 {
+		right += " " + r.st.err.Render("over")
+	}
+	return right
 }
 
 // Markers are two cells wide so step text lines up after emoji markers.
@@ -466,21 +534,19 @@ func (r *Renderer) plan(s *Snapshot, width int, now time.Time) block {
 			if !summarised {
 				summarised = true
 				text := fmt.Sprintf("%d · last: %s", nDone, steps[last].Text)
-				b.add(r.stepLine("✔ ", text, "", r.st.done, r.st.dim, stepDur(steps[last]), r.st.dim, lipgloss.Style{}, width), "✔")
+				b.add(r.stepLine("✔ ", text, "", r.st.done, r.st.dim, stepDur(steps[last]), r.st.dim, lipgloss.Style{}, width))
 			}
 			continue
 		}
-		l, syms := r.step(st, width, now)
-		b.add(l, syms...)
+		b.add(r.step(st, width, now))
 	}
 	return b
 }
 
-func (r *Renderer) step(st Step, width int, now time.Time) (string, []string) {
+func (r *Renderer) step(st Step, width int, now time.Time) string {
 	m := stepMarker[st.State]
-	syms := []string{strings.TrimSpace(m)}
 	if m == "" {
-		m, syms = "? ", nil
+		m = "? "
 	}
 	textSt, noteSt, rightSt := lipgloss.NewStyle(), r.st.dim, r.st.dim
 	var base lipgloss.Style
@@ -493,11 +559,10 @@ func (r *Renderer) step(st Step, width int, now time.Time) (string, []string) {
 	case "active":
 		if t, err := time.Parse(time.RFC3339, st.Started); err == nil {
 			right = "⏱ " + fmtDur(now.Sub(t))
-			syms = append(syms, "⏱")
 		}
 		// the row background would hide dim text: keep the default foreground
 		base, noteSt, rightSt = r.st.active, lipgloss.NewStyle(), lipgloss.NewStyle()
-		return r.stepLine(r.st.accent.Inherit(base).Render(m), st.Text, st.Note, textSt, noteSt, right, rightSt, base, width), syms
+		return r.stepLine(r.st.accent.Inherit(base).Render(m), st.Text, st.Note, textSt, noteSt, right, rightSt, base, width)
 	case "waiting":
 		noteSt = r.st.noteWaiting
 	case "failed":
@@ -505,7 +570,7 @@ func (r *Renderer) step(st Step, width int, now time.Time) (string, []string) {
 	case "external":
 		noteSt = r.st.noteExternal
 	}
-	return r.stepLine(m, st.Text, st.Note, textSt, noteSt, right, rightSt, base, width), syms
+	return r.stepLine(m, st.Text, st.Note, textSt, noteSt, right, rightSt, base, width)
 }
 
 const noteSep = " — "
@@ -566,18 +631,17 @@ func (r *Renderer) logLines(s *Snapshot, width, max int) block {
 			break
 		}
 		m := logMarker[e.Kind]
-		sym := m
 		if m == "" {
-			m, sym = "·", ""
+			m = "·"
 		}
 		ts := "     "
 		if !e.t.IsZero() {
 			ts = e.t.Format("15:04")
 		}
-		b.add(trunc(r.st.dim.Render(ts)+" "+m+" "+e.Text, width), sym)
+		b.add(trunc(r.st.dim.Render(ts)+" "+m+" "+e.Text, width))
 	}
 	for _, e := range s.LogErrs {
-		b.add(r.errLine(e, width), "⚠")
+		b.add(r.errLine(e, width))
 	}
 	return b
 }
@@ -585,7 +649,7 @@ func (r *Renderer) logLines(s *Snapshot, width, max int) block {
 func (r *Renderer) section(sec Section, width int) block {
 	var b block
 	if sec.Err != nil {
-		b.add(r.errLine(sec.Name+": "+sec.Err.Error(), width), "⚠")
+		b.add(r.errLine(sec.Name+": "+sec.Err.Error(), width))
 		return b
 	}
 	switch sec.Kind {
@@ -736,19 +800,19 @@ func (r *Renderer) checks(c *Checks, width int) block {
 		return b
 	}
 	if failed == 0 {
-		b.add(r.st.ok.Render(trunc(fmt.Sprintf("✔ %d/%d checks", n, n), width)), "✔")
+		b.add(r.st.ok.Render(trunc(fmt.Sprintf("✔ %d/%d checks", n, n), width)))
 	} else {
-		b.add(r.st.err.Render(trunc(fmt.Sprintf("✘ %d/%d checks failed", failed, n), width)), "✘")
+		b.add(r.st.err.Render(trunc(fmt.Sprintf("✘ %d/%d checks failed", failed, n), width)))
 	}
 	for _, ch := range c.Checks {
 		if ch.OK && !r.AllChecks {
 			continue
 		}
-		sym, marker, st := "✔", r.st.ok.Render("✔"), lipgloss.NewStyle()
+		marker, st := r.st.ok.Render("✔"), lipgloss.NewStyle()
 		if !ch.OK {
-			sym, marker, st = "✘", r.st.err.Render("✘"), r.st.failed
+			marker, st = r.st.err.Render("✘"), r.st.failed
 		}
-		b.add(r.stepLine("  "+marker, ch.Name, ch.Detail, st, r.st.dim, "", r.st.dim, lipgloss.Style{}, width), sym)
+		b.add(r.stepLine("  "+marker, ch.Name, ch.Detail, st, r.st.dim, "", r.st.dim, lipgloss.Style{}, width))
 	}
 	return b
 }

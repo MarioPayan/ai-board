@@ -1,6 +1,9 @@
-Board visual pass                                      ⏱ 1h28m · ⚠ stale 25m ago
-🔵 Rendering goldens  █████░░░░░ 5/10
-
+🔵 Board visual pass                                   ⏱ 1h28m · ⚠ stale 25m ago
+   Rendering goldens  █████░░░░░ 5/10                             📥0 🔴1 🤖0 ⚠0
+✘   Commit  pre-commit hook rejected gofmt
+📥  nothing on you
+🤖  no agents running
+────────────────────────────────────────────────────────────────────────────────
 📋 Plan ────────────────────────────────────────────────────────────────────────
 ✔  5 · last: Collapse finished steps behind a summary line                   25m
 ▶  Regenerate and read every golden file — four fixtures                   ⏱ 23m
