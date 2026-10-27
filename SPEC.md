@@ -101,18 +101,26 @@ Verification results. `detail` is optional. When every check passes the section 
 
 ## Layout
 
-Labels are English; icons replace words where the meaning stays obvious. Colours are ANSI 16-colour indices, so the terminal theme picks the shades.
+Labels are English; icons replace words where the meaning stays obvious. Colours are ANSI 16-colour indices, so the terminal theme picks the shades. "Darker" below means dimmer than the dim grey (grey and faint): a zero count, an empty slot, a key that would do nothing.
 
-Fixed area, top to bottom:
+Fixed area: always exactly six lines while a board is loaded, so its shape never changes, top to bottom:
 
-1. **Header line 1**: the title on the left; on the right, dimmed, `⏱ <total elapsed> · ↻ <updated ago>`. Total elapsed runs from the first step's `started` (to the last `ended` once the status is `done`); `updated` is the newest mtime in the directory. When the status is `working` and that mtime is more than 10 minutes old, the `↻` part becomes a red `⚠ stale <ago>`. A part with no data is omitted.
-2. **Header line 2**: status emoji, status text, a 10-cell progress bar and `done/total` (done and skipped count as done). When the status is `done`, the line is a green band reading `🟢 <status text>` with the bar full.
-3. **Pending**: one line per item, marked with a yellow `┃` bar and `📥`, the item in bold and its link dimmed after it. No line at all when there is nothing pending.
-4. **Agents**: one line per running agent (`🤖`) or failed agent (`🔴`), sorted failed first, then those over their expected time, then by elapsed time, longest first. At most three are listed; the rest collapse into one dim line, `🤖 +<N> more (<M> over)`, where M counts the hidden agents over their expected time and `(<M> over)` is omitted when it is zero. `a` lists every agent in the live viewer, and `--agents` does so with `--once`; when there are more than three, the full list moves out of the fixed area into the top of the scrolling body under its own `🤖 Agents` heading, so it can never push the plan off screen. Omitted when there are none.
+1. **Title line**: `<status emoji> <title>` on the left (the title bold; `⚪` when there is no status); on the right, dimmed, `⏱ <total elapsed> · ↻ <updated ago>`. Total elapsed runs from the first step's `started` (to the last `ended` once the status is `done`); `updated` is the newest mtime in the directory. When the status is `working` and that mtime is more than 10 minutes old, the `↻` part becomes a red `⚠ stale <ago>`. A part with no data is omitted.
+2. **Status line**, indented three spaces: the status text in bold, a 10-cell progress bar and `done/total` (done and skipped count as done). Pinned to the right edge, the counts `📥<N> 🔴<N> 🤖<N> ⚠<N>`: items on you (pending), failures (failed or blocked agents plus failed steps), running agents, and errors (a board.json error plus every section, agents.jsonl and log.jsonl parse error). A zero count is drawn darker, never left out. When the status is `done`, the line is a green band with the bar full, the counts inside it.
+3. **Slots, three lines**: a table of aligned columns with no borders and no header row, `icon | item | detail | right`, filled in priority order:
+   - pending items: `📥`, the item in bold, its link dimmed as the detail, a yellow `on you` on the right;
+   - failures: failed agents (`🔴`, the name, a red `failed` and the time it stopped on the right), then failed steps (`✘`, the text, its note as the detail);
+   - errors: a board.json or agents.jsonl parse error (`⚠`, in red);
+   - running agents (`🤖`), sorted over their expected time first, then by elapsed time, longest first; on the right the elapsed time or, with `expect_min`, a bar of elapsed against expected (full and marked `over` when exceeded).
 
-Scrolling body, top to bottom; each heading is a bold title followed by a dim rule, and a block with nothing to show is omitted. One blank line separates the fixed area from the body and each top-level block (Agents, Plan, Details, Log) from the next; a subsection title sits directly on its body, with no blank line:
+   When there are more items than slots, the last row's right column ends with a dim `+<N>`, the number of items not shown. Unused slots are darker rows, in this fixed order, for each category with nothing to show: `📥  nothing on you`, `🔴  no failures`, `🤖  no agents running`.
+4. **Rule**: a dim `─` across the full width.
 
-5. **🤖 Agents**: only when every agent is listed (`a`, `--agents`) and there are more than three; see 4.
+A missing directory renders only the `⏳ waiting for <path>` line instead.
+
+Scrolling body, top to bottom; each heading is a bold title followed by a dim rule, and a block with nothing to show is omitted. The first block sits right under the fixed area's rule; one blank line separates each top-level block (Agents, Plan, Details, Log) from the next; a subsection title sits directly on its body, with no blank line:
+
+5. **🤖 Agents**: every agent (failed first, then as in the slots, with any agents.jsonl parse errors), only when `a` (live viewer) or `--agents` (`--once`) is on and there are more than three agents. The slots keep showing the top items.
 6. **📋 Plan**: every step as `<marker> <text> — <note>`, the note coloured by state (waiting yellow, failed red, external magenta, others dim). The right column means one thing per state: done and skipped show their duration (`ended - started`, blank when either is missing); active shows `⏱ <elapsed>`; other states show nothing. The active step's marker is `▶` in an accent colour and, in the live viewer, its whole row has a subtle background. When a line is too long the note is truncated first (down to 6 cells), then the text (down to 20 cells); if it still does not fit, the note is dropped.
    When more than three steps are done or skipped, they collapse into one line, `✔ <N> · last: <text of the most recently ended one>` with that step's duration on the right, placed where the first finished step was. `d` toggles this in the live viewer; `--once` renders collapsed unless `--expand` is given.
 7. **🔎 Details**: every file in `sections/`, in order, each under its own title as a bold subheading.
@@ -120,14 +128,14 @@ Scrolling body, top to bottom; each heading is a bold title followed by a dim ru
 
 Live viewer only, below the body:
 
-- **Legend**: one dim line naming only the symbols currently on screen (in the fixed area and on the visible body lines), in this order: `▶ active · 🟡 on you · 🟣 external · ✘ failed · ○ todo · ✔ done · ⏱ elapsed · ↻ updated · ◆ commit · • note · ↗ link · 📥 pending · 🤖 agent · 🔴 failed/blocked · 🔵 working · 🟢 finished · ⚠ stale/error`. Symbols inside Markdown, charts and tables do not count. Entries that do not fit the width are dropped from the end and replaced by `…`. `--once --legend` appends it after a blank line, built from every symbol in the frame.
-- **Footer**: one dim line, `↓ <N> · ⇥ sections · d done · a agents · c checks · l log · ? help · q`. `↓ <N>` (lines below the viewport) appears only when the body scrolls. A key that would do nothing is left out: `⇥` with fewer than two jump targets, `d` with three finished steps or fewer, `a` with three agents or fewer, `c` when no checks section has a passing check to reveal.
+- **Legend** (hidden by default; `g` shows or hides it): one fixed dim line naming the plan markers, `▶ active · 🟡 on you · 🟣 external · ✘ failed · ○ todo · ✔ done`, just above the footer; the body gives up a line for it. Entries that do not fit the width are dropped from the end and replaced by `…`. `--once --legend` appends the same line after a blank line.
+- **Footer**: always exactly one line, every key in a fixed place in three groups: `move ⇥ sections │ view d done  a agents  c checks  l log  g legend │ h help  w narrow  q`. The group names and `│` are dim. A key that would do nothing right now is drawn darker, not left out: `⇥` with fewer than two jump targets or when the whole body fits, `d` with three finished steps or fewer, `a` with three agents or fewer, `c` when no checks section has a passing check to reveal. Pinned to the right edge, dim: `↓ <N>` (lines below the viewport), `end` at the bottom, nothing when the whole body fits. `w` toggles a narrow form with keys only, in the same places: `⇥ │ d a c l g │ h w q` and the indicator. There is no automatic switch by width; a pane narrower than the line truncates it.
 
-`?` replaces the body with a full-screen help (the fixed area, legend and footer stay): every step marker, status emoji, header, pending and agent icon, checks and log markers, what each colour means, and every key. `?` again, or `l`, leaves it.
+`h` replaces the body with a full-screen help (the fixed area, legend and footer stay): every step marker, status emoji, header, slot and count icon, checks and log markers, what each colour means, and every key. `h` again, or `l`, leaves it.
 
-Header, pending and agents (unless listed in the body, see 4) stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
+The six header lines stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
 
-Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` (shown only when the body scrolls) jump between Agents (when in the body), Plan, each Details subsection and Log, `l` toggles a full-screen log, `?` toggles the full-screen help, `d` expands or collapses finished steps, `a` lists every agent or the first three, `c` lists every check or only the failing ones, `q` quits.
+Keys (single keys, no Shift except `shift+tab`): `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` (active only when the body scrolls) jump between Agents (when in the body), Plan, each Details subsection and Log, `l` toggles a full-screen log, `h` toggles the full-screen help, `d` expands or collapses finished steps, `a` lists every agent in the body, `c` lists every check or only the failing ones, `g` shows or hides the legend line, `w` toggles the narrow footer, `q` quits.
 
 The viewer sets the terminal title to `board: <session-id>`; the opener script finds an existing pane by that title.
 
@@ -151,4 +159,4 @@ board hook                       read a Claude Code hook payload on stdin and ap
 
 It uses the payload's `session_id` to pick the directory. It never fails the hook: on any error it exits 0 and writes nothing. Unknown events are ignored.
 
-`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests; `--expand` lists every finished step instead of the collapsed summary; `--checks` lists passing checks too; `--agents` lists every agent; `--legend` ends the frame with the legend line.
+`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests; `--expand` lists every finished step instead of the collapsed summary; `--checks` lists passing checks too; `--agents` lists every agent in the body; `--legend` ends the frame with the fixed legend line.
