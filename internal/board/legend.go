@@ -8,15 +8,15 @@ import (
 
 // legendItems are the plan markers the legend line names, in order.
 var legendItems = []struct{ sym, label string }{
-	{"▶", "active"},
-	{"🟡", "on you"},
-	{"🟣", "external"},
-	{"✘", "failed"},
-	{"○", "todo"},
-	{"✔", "done"},
+	{"▶️", "active"},
+	{"📥", "on you"},
+	{"⏳", "external"},
+	{"❌", "failed"},
+	{"⚪", "todo"},
+	{"✅", "done"},
 }
 
-// LegendLine is the fixed dim legend line, `▶ active · 🟡 on you · …`.
+// LegendLine is the fixed dim legend line, `▶️ active · 📥 on you · …`.
 // Entries that do not fit in width are dropped from the end, leaving a
 // trailing `…`.
 func (r *Renderer) LegendLine(width int) string {
@@ -54,13 +54,13 @@ func (r *Renderer) RenderHelp(width int) string {
 	lines = append(lines, r.heading("❔", "Help", width))
 
 	sub("Plan steps")
-	item(r.st.accent.Render("▶"), "active step, its row highlighted, ⏱ elapsed on the right")
-	item("🟡", "waiting on you")
-	item("🟣", "external: CI, a subagent, a deploy")
-	item(r.st.failed.Render("✘"), "failed")
-	item("○", "todo")
-	item("✔", "done, with its duration; struck through when skipped")
-	item("✔ N", "more than three finished steps, collapsed (· last: the latest)")
+	item("▶️", "active step, its row highlighted, ⏱ elapsed on the right")
+	item("📥", "waiting on you")
+	item("⏳", "external: CI, an approval, a deploy")
+	item("❌", "failed")
+	item("⚪", "todo")
+	item("✅", "done, with its duration; struck through when skipped")
+	item("✅ N", "more than three finished steps, collapsed (· last: the latest)")
 
 	sub("Status")
 	item("🔵", "working")
@@ -72,18 +72,19 @@ func (r *Renderer) RenderHelp(width int) string {
 	sub("Header")
 	item("⏱", "elapsed since the first step started")
 	item("↻", "updated: time since the last write")
-	item(r.st.err.Render("⚠"), "stale (working, no write for 10 min) or a file that failed to parse")
-	item("📥N", "status line counts: 📥 on you, 🔴 failures (agents, steps), 🤖 running, ⚠ errors")
-	item("📥", "pending on you, with its link")
-	item("🔴", "failed agent, with the time it stopped")
-	item(r.st.err.Render("✘"), "failed step, with its note")
+	item("⚠️", "stale (working, no write for 10 min) or a file that failed to parse")
+	item("📥N", "status line counts: 📥 on you, ❌ failures (agents, steps), 🤖 running, ⏳ external, ⚠️ errors")
+	item("📥", "pending on you; ↗ when it has a link (the text opens it)")
+	item("❌", "failed agent, with the time it stopped")
+	item("❌", "failed step, with its note")
+	item("⏳", "external wait: who is awaited, time since it started, ↗ link")
 	item("🤖", "running agent: elapsed, or a bar of elapsed against expected")
 	item("+N", "more items than the three rows hold (a: every agent)")
-	item(r.st.off.Render("📥"), "darker: a zero count, an empty row, a key that does nothing now")
+	item(r.st.off.Render("📥"), "darker: a zero count or a key that does nothing now")
 
 	sub("Checks")
-	item(r.st.ok.Render("✔"), "all checks pass")
-	item(r.st.err.Render("✘"), "checks failed; only the failing ones are listed")
+	item("✅", "all checks pass")
+	item("❌", "checks failed; only the failing ones are listed")
 
 	sub("Log")
 	item("◆", "commit")

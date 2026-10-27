@@ -161,7 +161,7 @@ func TestCollapseFinished(t *testing.T) {
 	}}}
 	now := time.Date(2026, 10, 26, 10, 40, 0, 0, time.UTC)
 	got := Once(s, 60, now, Options{})
-	if !strings.Contains(got, "✔  4 · last: latest") || !strings.Contains(got, "25m\n") || strings.Contains(got, "three") {
+	if !strings.Contains(got, "✅ 4 · last: latest") || !strings.Contains(got, "25m\n") || strings.Contains(got, "three") {
 		t.Errorf("collapsed plan:\n%s", got)
 	}
 	exp := Once(s, 60, now, Options{Expand: true})
@@ -217,15 +217,15 @@ func TestChecksSummary(t *testing.T) {
 	fail := &Checks{Checks: []Check{{Name: "a", OK: true}, {Name: "b", OK: false, Detail: "boom"}, {Name: "c", OK: false}}}
 	r := &Renderer{}
 	r.init()
-	if got := r.checks(pass, 60).lines; len(got) != 1 || got[0] != "✔ 2/2 checks" {
+	if got := r.checks(pass, 60).lines; len(got) != 1 || got[0] != "✅ 2/2 checks" {
 		t.Errorf("all pass: %q", got)
 	}
-	want := []string{"✘ 2/3 checks failed", "  ✘ b — boom", "  ✘ c"}
+	want := []string{"❌ 2/3 checks failed", "  ❌ b — boom", "  ❌ c"}
 	if got := r.checks(fail, 60).lines; strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("some fail: %q, want %q", got, want)
 	}
 	r.AllChecks = true
-	want = []string{"✘ 2/3 checks failed", "  ✔ a", "  ✘ b — boom", "  ✘ c"}
+	want = []string{"❌ 2/3 checks failed", "  ✅ a", "  ❌ b — boom", "  ❌ c"}
 	if got := r.checks(fail, 60).lines; strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("all checks: %q, want %q", got, want)
 	}
@@ -287,9 +287,9 @@ func TestAgentsCapped(t *testing.T) {
 		first, summary  string
 	}{
 		{3, 0, 0, false, 3, "🤖  agent 2", ""},    // fits: no summary
-		{8, 1, 2, false, 3, "🔴  agent 0", " +5"}, // failed first, over ones shown, none hidden
-		{6, 2, 3, false, 3, "🔴  agent 1", " +3"}, // 2 over pushed below the cut
-		{8, 1, 2, true, 8, "🔴 agent 0", ""},      // all
+		{8, 1, 2, false, 3, "❌  agent 0", " +5"}, // failed first, over ones shown, none hidden
+		{6, 2, 3, false, 3, "❌  agent 1", " +3"}, // 2 over pushed below the cut
+		{8, 1, 2, true, 8, "❌ agent 0", ""},      // all
 	}
 	for _, c := range cases {
 		var got []string
@@ -335,10 +335,10 @@ func TestSlotsPriority(t *testing.T) {
 		want []string // row prefixes; "" is a blank row
 		more string   // the last row's suffix, "" for none
 	}{
-		{"all categories", func(*Snapshot) {}, []string{"📥  approve", "🔴  broken", "✘   hook"}, " +2"},
-		{"no pending", func(s *Snapshot) { s.Board.Pending = nil }, []string{"🔴  broken", "✘   hook", "⚠   board.json: bad"}, " +1"},
+		{"all categories", func(*Snapshot) {}, []string{"📥  approve", "❌  broken", "❌  hook"}, " +2"},
+		{"no pending", func(s *Snapshot) { s.Board.Pending = nil }, []string{"❌  broken", "❌  hook", "⚠️  board.json: bad"}, " +1"},
 		{"only error and agent", func(s *Snapshot) { s.Board.Pending, s.Board.Steps, s.Agents = nil, nil, s.Agents[:1] },
-			[]string{"⚠   board.json: bad", "🤖  runner", ""}, ""},
+			[]string{"⚠️  board.json: bad", "🤖  runner", ""}, ""},
 		{"only running", func(s *Snapshot) { s.Board.Pending, s.Board.Steps, s.BoardErr, s.Agents = nil, nil, nil, s.Agents[:1] },
 			[]string{"🤖  runner", "", ""}, ""},
 		{"nothing", func(s *Snapshot) { *s = Snapshot{} },
@@ -400,7 +400,7 @@ func TestHeaderShape(t *testing.T) {
 	}
 	r := &Renderer{}
 	top := strings.Split(r.Render(&Snapshot{}, 60, now).Top, "\n")
-	if !strings.HasPrefix(top[1], "   ") || !strings.HasSuffix(top[1], "📥0 🔴0 🤖0 🟣0 ⚠0") {
+	if !strings.HasPrefix(top[1], "   ") || !strings.HasSuffix(top[1], "📥0 ❌0 🤖0 ⏳0 ⚠️0") {
 		t.Errorf("zero counts should stay: %q", top[1])
 	}
 }
@@ -417,7 +417,7 @@ func TestZeroCountsDarker(t *testing.T) {
 	if strings.Contains(got, r.st.off.Render("📥1")) || !strings.Contains(got, "📥1") {
 		t.Errorf("non-zero count drawn darker: %q", got)
 	}
-	for _, z := range []string{"🔴0", "🤖0", "⚠0"} {
+	for _, z := range []string{"❌0", "🤖0", "⚠️0"} {
 		if !strings.Contains(got, r.st.off.Render(z)) {
 			t.Errorf("zero count %s not darker: %q", z, got)
 		}
@@ -456,7 +456,7 @@ func TestAgentsHidden(t *testing.T) {
 	}
 }
 
-// TestExternalSlot: an external step is a 🟣 slot after failures and errors,
+// TestExternalSlot: an external step is a ⏳ slot after failures and errors,
 // before running agents, with its note as the detail, the time since it
 // started and a ↗ when it has a link; the counts line counts it.
 func TestExternalSlot(t *testing.T) {
@@ -469,13 +469,13 @@ func TestExternalSlot(t *testing.T) {
 		{Text: "broken", State: "failed"},
 	}
 	rows := r.slots(s, 80, now)
-	if !strings.HasPrefix(rows[0], "✘") || !strings.HasPrefix(rows[1], "🟣  CI on PR #150") || !strings.HasPrefix(rows[2], "🤖  runner") {
+	if !strings.HasPrefix(rows[0], "❌") || !strings.HasPrefix(rows[1], "⏳  CI on PR #150") || !strings.HasPrefix(rows[2], "🤖  runner") {
 		t.Errorf("order: want failure, external, agent:\n%s", strings.Join(rows, "\n"))
 	}
 	if !strings.Contains(rows[1], "GitHub Actions") || !strings.HasSuffix(rows[1], "12m ↗") || strings.Contains(rows[1], "https://ci") {
 		t.Errorf("external row = %q", rows[1])
 	}
-	if got := r.counts(s, lipgloss.NewStyle()); !strings.Contains(got, "🟣1") {
-		t.Errorf("counts = %q, want 🟣1", got)
+	if got := r.counts(s, lipgloss.NewStyle()); !strings.Contains(got, "⏳1") {
+		t.Errorf("counts = %q, want ⏳1", got)
 	}
 }

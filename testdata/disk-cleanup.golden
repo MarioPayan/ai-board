@@ -1,15 +1,15 @@
 🔵 Limpieza de disco                                            ⏱ 53m · ↻ 3m ago
-   Clasificando hallazgos  ████░░░░░░ 2/5                     📥0 🔴0 🤖0 🟣0 ⚠0
+   Clasificando hallazgos  ████░░░░░░ 2/5                    📥0 ❌0 🤖0 ⏳0 ⚠️0
 
 
 
 ────────────────────────────────────────────────────────────────────────────────
 📋 Plan ────────────────────────────────────────────────────────────────────────
-✔  Leer guías de deck y board                                                 5m
-✔  Escanear disco: home, sistema, Docker, duplicados (czkawka)               25m
-▶  Clasificar candidatos con riesgo                                        ⏱ 23m
-○  Construir decision deck
-○  Publicar artefacto
+✅ Leer guías de deck y board                                                 5m
+✅ Escanear disco: home, sistema, Docker, duplicados (czkawka)               25m
+▶️ Clasificar candidatos con riesgo                                        ⏱ 23m
+⚪ Construir decision deck
+⚪ Publicar artefacto
 
 🔎 Details ─────────────────────────────────────────────────────────────────────
 Hallazgos

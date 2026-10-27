@@ -1,20 +1,20 @@
 🔵 Board visual pass                                          ⏱ 1h28m · ↻ 3m ago
-   Rendering goldens  █████░░░░░ 5/10                         📥0 🔴1 🤖0 🟣1 ⚠0
-✘   Commit                                pre-commit hook rejected gofmt
-🟣  Check the live frame under script(1)  waiting on the 5 s OSC 11 probe
+   Rendering goldens  █████░░░░░ 5/10                        📥0 ❌1 🤖0 ⏳1 ⚠️0
+❌  Commit                                pre-commit hook rejected gofmt
+⏳  Check the live frame under script(1)  waiting on the 5 s OSC 11 probe
 
 ────────────────────────────────────────────────────────────────────────────────
 📋 Plan ────────────────────────────────────────────────────────────────────────
-✔  Read SPEC.md and README.md                                                 4m
-✔  Write failing unit tests                                                   9m
-✔  Prototype a tinted pending block — the left bar is enough
-✔  Move pending into the fixed area                                          27m
-✔  Collapse finished steps behind a summary line                             25m
-▶  Regenerate and read every golden file — four fixtures                   ⏱ 23m
-🟣 Check the live frame under script(1) — waiting on the 5 s OSC 11 probe
-🟡 Approve the new layout before it ships to every session board — Mario review…
-✘  Commit — pre-commit hook rejected gofmt
-○  Report back
+✅ Read SPEC.md and README.md                                                 4m
+✅ Write failing unit tests                                                   9m
+✅ Prototype a tinted pending block — the left bar is enough
+✅ Move pending into the fixed area                                          27m
+✅ Collapse finished steps behind a summary line                             25m
+▶️ Regenerate and read every golden file — four fixtures                   ⏱ 23m
+⏳ Check the live frame under script(1) — waiting on the 5 s OSC 11 probe
+📥 Approve the new layout before it ships to every session board — Mario review…
+❌ Commit — pre-commit hook rejected gofmt
+⚪ Report back
 
 🔎 Details ─────────────────────────────────────────────────────────────────────
 Where

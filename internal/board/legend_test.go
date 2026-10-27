@@ -12,7 +12,7 @@ import (
 	"github.com/muesli/termenv"
 )
 
-const fixedLegend = "▶ active · 🟡 on you · 🟣 external · ✘ failed · ○ todo · ✔ done"
+const fixedLegend = "▶️ active · 📥 on you · ⏳ external · ❌ failed · ⚪ todo · ✅ done"
 
 func TestLegendLine(t *testing.T) {
 	r := &Renderer{}
@@ -22,7 +22,7 @@ func TestLegendLine(t *testing.T) {
 	}
 	// entries that do not fit are dropped whole
 	got := r.LegendLine(30)
-	if ansi.StringWidth(got) > 30 || !strings.HasPrefix(got, "▶ active · 🟡 on you") || !strings.HasSuffix(got, "…") {
+	if ansi.StringWidth(got) > 30 || !strings.HasPrefix(got, "▶️ active · 📥 on you") || !strings.HasSuffix(got, "…") {
 		t.Errorf("narrow legend = %q", got)
 	}
 }
@@ -59,7 +59,7 @@ func TestModelLegendToggle(t *testing.T) {
 	m := newModel(t, "done-heavy", 120, 14)
 	h := m.vp.Height
 	lines := viewLines(m)
-	if len(lines) != 14 || strings.Contains(strings.Join(lines, "\n"), "○ todo") {
+	if len(lines) != 14 || strings.Contains(strings.Join(lines, "\n"), "⚪ todo") {
 		t.Errorf("legend should start hidden:\n%s", strings.Join(lines, "\n"))
 	}
 	press(m, "g")
@@ -72,7 +72,7 @@ func TestModelLegendToggle(t *testing.T) {
 		t.Errorf("g at the bottom: legend = %q", lines[len(lines)-2])
 	}
 	press(m, "g")
-	if lines = viewLines(m); len(lines) != 14 || m.vp.Height != h || strings.Contains(strings.Join(lines, "\n"), "○ todo") {
+	if lines = viewLines(m); len(lines) != 14 || m.vp.Height != h || strings.Contains(strings.Join(lines, "\n"), "⚪ todo") {
 		t.Errorf("g again should hide the legend:\n%s", strings.Join(lines, "\n"))
 	}
 }
@@ -192,7 +192,7 @@ func TestModelHelp(t *testing.T) {
 	if strings.Contains(view, "📋 Plan") || !strings.Contains(view, "❔ Help") {
 		t.Fatalf("h should replace the body with help:\n%s", view)
 	}
-	for _, sym := range []string{"▶", "🟡", "🟣", "✘", "○", "✔", "⏱", "↻", "◆", "•", "↗", "📥", "🤖", "🔴", "🔵", "🟢", "⚠", "⚪", "+N"} {
+	for _, sym := range []string{"▶️", "🟡", "⏳", "❌", "⚪", "✅", "⏱", "↻", "◆", "•", "↗", "📥", "🤖", "🔴", "🔵", "🟢", "⚠️", "⚪", "+N"} {
 		if !strings.Contains(view, sym) {
 			t.Errorf("help misses %s", sym)
 		}

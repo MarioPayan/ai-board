@@ -198,7 +198,7 @@ func (r *Renderer) header(s *Snapshot, width int, now time.Time) block {
 	}
 	switch {
 	case isStale(s, now):
-		right = append(right, r.st.err.Render("⚠ stale "+ago(now.Sub(s.Updated))))
+		right = append(right, r.st.err.Render("⚠️ stale "+ago(now.Sub(s.Updated))))
 	case !s.Updated.IsZero():
 		right = append(right, r.st.dim.Render("↻ "+ago(now.Sub(s.Updated))))
 	}
@@ -236,7 +236,7 @@ func (r *Renderer) header(s *Snapshot, width int, now time.Time) block {
 	return b
 }
 
-// counts is `📥N 🔴N 🤖N 🟣N ⚠N`: items on you, failures (failed agents and
+// counts is `📥N ❌N 🤖N ⏳N ⚠️N`: items on you, failures (failed agents and
 // steps), running agents, external waits (external steps) and errors (board.json and every parse error). A
 // zero count is drawn darker, never left out, so the line keeps its shape.
 // Every part inherits base.
@@ -270,7 +270,7 @@ func (r *Renderer) counts(s *Snapshot, base lipgloss.Style) string {
 	for _, c := range []struct {
 		icon string
 		n    int
-	}{{"📥", len(s.Board.Pending)}, {"🔴", failed}, {"🤖", running}, {"🟣", external}, {"⚠", errs}} {
+	}{{"📥", len(s.Board.Pending)}, {"❌", failed}, {"🤖", running}, {"⏳", external}, {"⚠️", errs}} {
 		st := base
 		if c.n == 0 {
 			st = r.st.off.Inherit(base)
@@ -353,7 +353,7 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 	}
 	for _, st := range s.Board.Steps {
 		if st.State == "failed" {
-			items = append(items, slot{icon: "✘", item: st.Text, detail: st.Note, iconSt: r.st.err, itemSt: r.st.failed, detailSt: r.st.noteFailed})
+			items = append(items, slot{icon: "❌", item: st.Text, detail: st.Note, iconSt: r.st.err, itemSt: r.st.failed, detailSt: r.st.noteFailed})
 		}
 	}
 	var errs []string
@@ -361,13 +361,13 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 		errs = append(errs, s.BoardErr.Error())
 	}
 	for _, e := range append(errs, s.AgentErrs...) {
-		items = append(items, slot{icon: "⚠", item: e, iconSt: r.st.err, itemSt: r.st.err})
+		items = append(items, slot{icon: "⚠️", item: e, iconSt: r.st.err, itemSt: r.st.err})
 	}
 	for _, st := range s.Board.Steps {
 		if st.State != "external" {
 			continue
 		}
-		it := slot{icon: "🟣", item: st.Text, detail: st.Note, link: st.Link, detailSt: r.st.noteExternal}
+		it := slot{icon: "⏳", item: st.Text, detail: st.Note, link: st.Link, detailSt: r.st.noteExternal}
 		var right []string
 		if t, err := time.Parse(time.RFC3339, st.Started); err == nil {
 			right = append(right, fmtDur(now.Sub(t)))
@@ -445,7 +445,7 @@ func (r *Renderer) agentSlot(a Agent, now time.Time) slot {
 		if !a.Stopped.IsZero() {
 			right += " " + a.Stopped.Format("15:04")
 		}
-		return slot{icon: "🔴", item: a.Name, right: right}
+		return slot{icon: "❌", item: a.Name, right: right}
 	}
 	return slot{icon: "🤖", item: a.Name, right: r.agentTime(a, now)}
 }
@@ -554,8 +554,8 @@ func (r *Renderer) agentTime(a Agent, now time.Time) string {
 
 // Markers are two cells wide so step text lines up after emoji markers.
 var stepMarker = map[string]string{
-	"done": "✔ ", "active": "▶ ", "waiting": "🟡", "external": "🟣",
-	"failed": "✘ ", "todo": "○ ", "skipped": "✔ ",
+	"done": "✅", "active": "▶️", "waiting": "📥", "external": "⏳",
+	"failed": "❌", "todo": "⚪", "skipped": "✅",
 }
 
 // stepDur is ended - started of a finished step, or "" when either
@@ -595,7 +595,7 @@ func (r *Renderer) plan(s *Snapshot, width int, now time.Time) block {
 			if !summarised {
 				summarised = true
 				text := fmt.Sprintf("%d · last: %s", nDone, steps[last].Text)
-				b.add(r.stepLine("✔ ", text, "", r.st.done, r.st.dim, stepDur(steps[last]), r.st.dim, lipgloss.Style{}, width))
+				b.add(r.stepLine("✅", text, "", r.st.done, r.st.dim, stepDur(steps[last]), r.st.dim, lipgloss.Style{}, width))
 			}
 			continue
 		}
@@ -792,7 +792,7 @@ func (r *Renderer) heading(icon, title string, width int) string {
 }
 
 func (r *Renderer) errLine(msg string, width int) string {
-	return r.st.err.Render(trunc("⚠ "+msg, width))
+	return r.st.err.Render(trunc("⚠️ "+msg, width))
 }
 
 // row puts left and right on one line of the given width, truncating left.
@@ -845,8 +845,8 @@ func fmtNum(v float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", v), "0"), ".")
 }
 
-// checks renders a *.checks.json section: one green `✔ N/N checks` line when
-// all pass, otherwise a red `✘ F/N checks failed` line followed by the
+// checks renders a *.checks.json section: one green `✅ N/N checks` line when
+// all pass, otherwise a red `❌ F/N checks failed` line followed by the
 // failing checks. With AllChecks, every check is listed.
 func (r *Renderer) checks(c *Checks, width int) block {
 	n, failed := len(c.Checks), 0
@@ -861,17 +861,17 @@ func (r *Renderer) checks(c *Checks, width int) block {
 		return b
 	}
 	if failed == 0 {
-		b.add(r.st.ok.Render(trunc(fmt.Sprintf("✔ %d/%d checks", n, n), width)))
+		b.add(r.st.ok.Render(trunc(fmt.Sprintf("✅ %d/%d checks", n, n), width)))
 	} else {
-		b.add(r.st.err.Render(trunc(fmt.Sprintf("✘ %d/%d checks failed", failed, n), width)))
+		b.add(r.st.err.Render(trunc(fmt.Sprintf("❌ %d/%d checks failed", failed, n), width)))
 	}
 	for _, ch := range c.Checks {
 		if ch.OK && !r.AllChecks {
 			continue
 		}
-		marker, st := r.st.ok.Render("✔"), lipgloss.NewStyle()
+		marker, st := "✅", lipgloss.NewStyle()
 		if !ch.OK {
-			marker, st = r.st.err.Render("✘"), r.st.failed
+			marker, st = "❌", r.st.failed
 		}
 		b.add(r.stepLine("  "+marker, ch.Name, ch.Detail, st, r.st.dim, "", r.st.dim, lipgloss.Style{}, width))
 	}

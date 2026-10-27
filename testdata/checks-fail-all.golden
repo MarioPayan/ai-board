@@ -1,18 +1,18 @@
 🔵 Checks some fail                                             ⏱ 30m · ↻ 3m ago
-   Verifying  █████░░░░░ 1/2                                  📥0 🔴0 🤖0 🟣0 ⚠0
+   Verifying  █████░░░░░ 1/2                                 📥0 ❌0 🤖0 ⏳0 ⚠️0
 
 
 
 ────────────────────────────────────────────────────────────────────────────────
 📋 Plan ────────────────────────────────────────────────────────────────────────
-✔  Implement                                                                 20m
-▶  Run checks                                                              ⏱ 10m
+✅ Implement                                                                 20m
+▶️ Run checks                                                              ⏱ 10m
 
 🔎 Details ─────────────────────────────────────────────────────────────────────
 Verification
-✘ 2/5 checks failed
-  ✘ go test -count=1 ./... — 2 failed: TestGolden/agents-many, TestLegend
-  ✔ gofmt -l . — no files
-  ✔ go vet ./...
-  ✘ live TUI under script — panic: index out of range in legend() when the view…
-  ✔ goldens read — 9 files
+❌ 2/5 checks failed
+  ❌ go test -count=1 ./... — 2 failed: TestGolden/agents-many, TestLegend
+  ✅ gofmt -l . — no files
+  ✅ go vet ./...
+  ❌ live TUI under script — panic: index out of range in legend() when the vie…
+  ✅ goldens read — 9 files

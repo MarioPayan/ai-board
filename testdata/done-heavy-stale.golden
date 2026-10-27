@@ -1,16 +1,16 @@
-🔵 Board visual pass                                   ⏱ 1h28m · ⚠ stale 25m ago
-   Rendering goldens  █████░░░░░ 5/10                         📥0 🔴1 🤖0 🟣1 ⚠0
-✘   Commit                                pre-commit hook rejected gofmt
-🟣  Check the live frame under script(1)  waiting on the 5 s OSC 11 probe
+🔵 Board visual pass                                  ⏱ 1h28m · ⚠️ stale 25m ago
+   Rendering goldens  █████░░░░░ 5/10                        📥0 ❌1 🤖0 ⏳1 ⚠️0
+❌  Commit                                pre-commit hook rejected gofmt
+⏳  Check the live frame under script(1)  waiting on the 5 s OSC 11 probe
 
 ────────────────────────────────────────────────────────────────────────────────
 📋 Plan ────────────────────────────────────────────────────────────────────────
-✔  5 · last: Collapse finished steps behind a summary line                   25m
-▶  Regenerate and read every golden file — four fixtures                   ⏱ 23m
-🟣 Check the live frame under script(1) — waiting on the 5 s OSC 11 probe
-🟡 Approve the new layout before it ships to every session board — Mario review…
-✘  Commit — pre-commit hook rejected gofmt
-○  Report back
+✅ 5 · last: Collapse finished steps behind a summary line                   25m
+▶️ Regenerate and read every golden file — four fixtures                   ⏱ 23m
+⏳ Check the live frame under script(1) — waiting on the 5 s OSC 11 probe
+📥 Approve the new layout before it ships to every session board — Mario review…
+❌ Commit — pre-commit hook rejected gofmt
+⚪ Report back
 
 🔎 Details ─────────────────────────────────────────────────────────────────────
 Where
