@@ -397,6 +397,9 @@ func TestZeroCountsDarker(t *testing.T) {
 	withColor(t)
 	r := &Renderer{Color: true}
 	r.init()
+	if r.st.off.Render("x") == r.st.dim.Render("x") {
+		t.Error("the darker style should differ from dim")
+	}
 	got := r.counts(&Snapshot{Board: BoardFile{Pending: []Pending{{Text: "a"}}}}, lipgloss.Style{})
 	if strings.Contains(got, r.st.off.Render("📥1")) || !strings.Contains(got, "📥1") {
 		t.Errorf("non-zero count drawn darker: %q", got)

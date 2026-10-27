@@ -104,7 +104,7 @@ func (r *Renderer) RenderHelp(width int) string {
 	item("j k", "scroll (also ↑ ↓, pgup pgdn)")
 	item("⇥", "next section (⇧⇥ previous)")
 	item("d", "expand or collapse finished steps")
-	item("a", "list every agent or the first three")
+	item("a", "list every agent in the body (more than three)")
 	item("c", "list every check or only the failing ones")
 	item("l", "full-screen log")
 	item("g", "show or hide the legend line")
