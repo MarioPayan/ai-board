@@ -2,7 +2,7 @@
    Rendering goldens  █████░░░░░ 5/10                         📥0 🔴1 🤖0 🟣1 ⚠0
 ✘   Commit                                pre-commit hook rejected gofmt
 🟣  Check the live frame under script(1)  waiting on the 5 s OSC 11 probe
-📥  nothing on you
+
 ────────────────────────────────────────────────────────────────────────────────
 📋 Plan ────────────────────────────────────────────────────────────────────────
 ✔  5 · last: Collapse finished steps behind a summary line                   25m

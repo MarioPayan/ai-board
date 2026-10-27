@@ -328,9 +328,9 @@ type slot struct {
 
 // slots renders exactly agentsShown header rows, filled in priority order:
 // pending items, failures (failed agents, then failed steps), errors
-// (board.json, agents.jsonl), external waits (external steps), running agents. When there are more items the
-// last row ends with a dim `+N`; when fewer, the free rows say, darker, which
-// of pending, failures and agents is empty.
+// (board.json, agents.jsonl), external waits (external steps), running
+// agents. When there are more items the last row ends with a dim `+N`; when
+// fewer, the free rows are blank.
 func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 	var items []slot
 	for _, p := range s.Board.Pending {
@@ -342,7 +342,6 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 		}
 		items = append(items, it)
 	}
-	nPending := len(items)
 	agents := sortAgents(s.Agents, now) // failed first
 	nRunning := 0
 	for _, a := range agents {
@@ -357,7 +356,6 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 			items = append(items, slot{icon: "✘", item: st.Text, detail: st.Note, iconSt: r.st.err, itemSt: r.st.failed, detailSt: r.st.noteFailed})
 		}
 	}
-	nFailed := len(items) - nPending
 	var errs []string
 	if s.BoardErr != nil {
 		errs = append(errs, s.BoardErr.Error())
@@ -423,13 +421,10 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 		}
 		out = append(out, strings.TrimRight(l, " "))
 	}
-	for _, e := range []struct {
-		icon, text string
-		empty      bool
-	}{{"📥", "nothing on you", nPending == 0}, {"🔴", "no failures", nFailed == 0}, {"🤖", "no agents running", nRunning == 0}} {
-		if e.empty && len(out) < agentsShown {
-			out = append(out, r.st.off.Render(trunc(e.icon+"  "+e.text, width)))
-		}
+	// unused slots stay as blank lines, so the header keeps its height; the
+	// zero counts on the status line already say which categories are empty
+	for len(out) < agentsShown {
+		out = append(out, "")
 	}
 	return out
 }

@@ -196,9 +196,10 @@ func TestBlankLinesBetweenSections(t *testing.T) {
 		t.Fatalf("no line starting %q in\n%s", prefix, got)
 		return -1
 	}
-	// the fixed area ends with its rule, right above the first block
-	if i := idx("📋 Plan"); lines[i-1] != strings.Repeat("─", 40) || lines[i-2] == "" {
-		t.Errorf("want the rule and no blank line before the plan:\n%s", got)
+	// the fixed area is six lines ending with its rule (unused slots are
+	// blank), right above the first block
+	if i := idx("📋 Plan"); i != 6 || lines[i-1] != strings.Repeat("─", 40) {
+		t.Errorf("want the rule as line 6 and the plan right under it:\n%s", got)
 	}
 	for _, h := range []string{"🔎 Details", "📜 Log"} {
 		i := idx(h)
@@ -331,17 +332,17 @@ func TestSlotsPriority(t *testing.T) {
 	cases := []struct {
 		name string
 		edit func(s *Snapshot)
-		want []string // row prefixes
+		want []string // row prefixes; "" is a blank row
 		more string   // the last row's suffix, "" for none
 	}{
 		{"all categories", func(*Snapshot) {}, []string{"📥  approve", "🔴  broken", "✘   hook"}, " +2"},
 		{"no pending", func(s *Snapshot) { s.Board.Pending = nil }, []string{"🔴  broken", "✘   hook", "⚠   board.json: bad"}, " +1"},
 		{"only error and agent", func(s *Snapshot) { s.Board.Pending, s.Board.Steps, s.Agents = nil, nil, s.Agents[:1] },
-			[]string{"⚠   board.json: bad", "🤖  runner", "📥  nothing on you"}, ""},
+			[]string{"⚠   board.json: bad", "🤖  runner", ""}, ""},
 		{"only running", func(s *Snapshot) { s.Board.Pending, s.Board.Steps, s.BoardErr, s.Agents = nil, nil, nil, s.Agents[:1] },
-			[]string{"🤖  runner", "📥  nothing on you", "🔴  no failures"}, ""},
+			[]string{"🤖  runner", "", ""}, ""},
 		{"nothing", func(s *Snapshot) { *s = Snapshot{} },
-			[]string{"📥  nothing on you", "🔴  no failures", "🤖  no agents running"}, ""},
+			[]string{"", "", ""}, ""},
 	}
 	for _, c := range cases {
 		s := *full
@@ -353,7 +354,7 @@ func TestSlotsPriority(t *testing.T) {
 			continue
 		}
 		for i, w := range c.want {
-			if !strings.HasPrefix(got[i], w) {
+			if !strings.HasPrefix(got[i], w) || w == "" && got[i] != "" {
 				t.Errorf("%s: row %d = %q, want %q…", c.name, i, got[i], w)
 			}
 		}

@@ -114,7 +114,7 @@ Fixed area: always exactly six lines while a board is loaded, so its shape never
    - external waits: every `external` step (`🟣`, the text, its note in magenta as the detail, i.e. who or what is awaited); on the right, dim, the time since its `started` and, with a `link`, a `↗`, the text then being a hyperlink to it like a pending item;
    - running agents (`🤖`), sorted over their expected time first, then by elapsed time, longest first; on the right the elapsed time or, with `expect_min`, a bar of elapsed against expected (full and marked `over` when exceeded).
 
-   When there are more items than slots, the last row's right column ends with a dim `+<N>`, the number of items not shown. Unused slots are darker rows, in this fixed order, for each category with nothing to show: `📥  nothing on you`, `🔴  no failures`, `🤖  no agents running`.
+   When there are more items than slots, the last row's right column ends with a dim `+<N>`, the number of items not shown. Unused slots are blank lines, so the fixed area keeps its height; the zero counts on the status line say which categories are empty.
 4. **Rule**: a dim `─` across the full width.
 
 A missing directory renders only the `⏳ waiting for <path>` line instead.
