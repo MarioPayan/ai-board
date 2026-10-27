@@ -399,7 +399,7 @@ func TestHeaderShape(t *testing.T) {
 	}
 	r := &Renderer{}
 	top := strings.Split(r.Render(&Snapshot{}, 60, now).Top, "\n")
-	if !strings.HasPrefix(top[1], "   ") || !strings.HasSuffix(top[1], "📥0 🔴0 🤖0 ⚠0") {
+	if !strings.HasPrefix(top[1], "   ") || !strings.HasSuffix(top[1], "📥0 🔴0 🤖0 🟣0 ⚠0") {
 		t.Errorf("zero counts should stay: %q", top[1])
 	}
 }
@@ -452,5 +452,29 @@ func TestAgentsHidden(t *testing.T) {
 		if got := agentsHidden(s); got != c.want {
 			t.Errorf("%s: agentsHidden = %v, want %v", c.name, got, c.want)
 		}
+	}
+}
+
+// TestExternalSlot: an external step is a 🟣 slot after failures and errors,
+// before running agents, with its note as the detail, the time since it
+// started and a ↗ when it has a link; the counts line counts it.
+func TestExternalSlot(t *testing.T) {
+	now := time.Date(2026, 10, 27, 15, 0, 0, 0, time.UTC)
+	r := &Renderer{}
+	r.init()
+	s := &Snapshot{Agents: []Agent{{Name: "runner", Started: now.Add(-5 * time.Minute)}}}
+	s.Board.Steps = []Step{
+		{Text: "CI on PR #150", State: "external", Note: "GitHub Actions", Started: now.Add(-12 * time.Minute).Format(time.RFC3339), Link: "https://ci"},
+		{Text: "broken", State: "failed"},
+	}
+	rows := r.slots(s, 80, now)
+	if !strings.HasPrefix(rows[0], "✘") || !strings.HasPrefix(rows[1], "🟣  CI on PR #150") || !strings.HasPrefix(rows[2], "🤖  runner") {
+		t.Errorf("order: want failure, external, agent:\n%s", strings.Join(rows, "\n"))
+	}
+	if !strings.Contains(rows[1], "GitHub Actions") || !strings.HasSuffix(rows[1], "12m ↗") || strings.Contains(rows[1], "https://ci") {
+		t.Errorf("external row = %q", rows[1])
+	}
+	if got := r.counts(s, lipgloss.NewStyle()); !strings.Contains(got, "🟣1") {
+		t.Errorf("counts = %q, want 🟣1", got)
 	}
 }

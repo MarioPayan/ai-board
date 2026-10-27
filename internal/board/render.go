@@ -236,12 +236,12 @@ func (r *Renderer) header(s *Snapshot, width int, now time.Time) block {
 	return b
 }
 
-// counts is `📥N 🔴N 🤖N ⚠N`: items on you, failures (failed agents and
-// steps), running agents and errors (board.json and every parse error). A
+// counts is `📥N 🔴N 🤖N 🟣N ⚠N`: items on you, failures (failed agents and
+// steps), running agents, external waits (external steps) and errors (board.json and every parse error). A
 // zero count is drawn darker, never left out, so the line keeps its shape.
 // Every part inherits base.
 func (r *Renderer) counts(s *Snapshot, base lipgloss.Style) string {
-	failed, running := 0, 0
+	failed, running, external := 0, 0, 0
 	for _, a := range s.Agents {
 		if a.Failed {
 			failed++
@@ -250,8 +250,11 @@ func (r *Renderer) counts(s *Snapshot, base lipgloss.Style) string {
 		}
 	}
 	for _, st := range s.Board.Steps {
-		if st.State == "failed" {
+		switch st.State {
+		case "failed":
 			failed++
+		case "external":
+			external++
 		}
 	}
 	errs := len(s.AgentErrs) + len(s.LogErrs)
@@ -267,7 +270,7 @@ func (r *Renderer) counts(s *Snapshot, base lipgloss.Style) string {
 	for _, c := range []struct {
 		icon string
 		n    int
-	}{{"📥", len(s.Board.Pending)}, {"🔴", failed}, {"🤖", running}, {"⚠", errs}} {
+	}{{"📥", len(s.Board.Pending)}, {"🔴", failed}, {"🤖", running}, {"🟣", external}, {"⚠", errs}} {
 		st := base
 		if c.n == 0 {
 			st = r.st.off.Inherit(base)
@@ -325,7 +328,7 @@ type slot struct {
 
 // slots renders exactly agentsShown header rows, filled in priority order:
 // pending items, failures (failed agents, then failed steps), errors
-// (board.json, agents.jsonl), running agents. When there are more items the
+// (board.json, agents.jsonl), external waits (external steps), running agents. When there are more items the
 // last row ends with a dim `+N`; when fewer, the free rows say, darker, which
 // of pending, failures and agents is empty.
 func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
@@ -361,6 +364,21 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 	}
 	for _, e := range append(errs, s.AgentErrs...) {
 		items = append(items, slot{icon: "⚠", item: e, iconSt: r.st.err, itemSt: r.st.err})
+	}
+	for _, st := range s.Board.Steps {
+		if st.State != "external" {
+			continue
+		}
+		it := slot{icon: "🟣", item: st.Text, detail: st.Note, link: st.Link, detailSt: r.st.noteExternal}
+		var right []string
+		if t, err := time.Parse(time.RFC3339, st.Started); err == nil {
+			right = append(right, fmtDur(now.Sub(t)))
+		}
+		if st.Link != "" {
+			right = append(right, "↗")
+		}
+		it.right = r.st.dim.Render(strings.Join(right, " "))
+		items = append(items, it)
 	}
 	for _, a := range agents[len(agents)-nRunning:] {
 		items = append(items, r.agentSlot(a, now))
@@ -479,7 +497,7 @@ func (r *Renderer) agentsInBody(s *Snapshot) bool {
 
 // agentsHidden reports whether an agent is left out of the header slots, by
 // the same order slots fills them: pending, failed agents, failed steps,
-// errors, running agents.
+// errors, external steps, running agents.
 func agentsHidden(s *Snapshot) bool {
 	var failed, running, rest int
 	for _, a := range s.Agents {
@@ -490,7 +508,7 @@ func agentsHidden(s *Snapshot) bool {
 		}
 	}
 	for _, st := range s.Board.Steps {
-		if st.State == "failed" {
+		if st.State == "failed" || st.State == "external" {
 			rest++
 		}
 	}

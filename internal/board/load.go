@@ -29,6 +29,7 @@ type Step struct {
 	Note    string `json:"note"`
 	Started string `json:"started"`
 	Ended   string `json:"ended"`
+	Link    string `json:"link"` // external steps: opened from the header slot
 }
 
 // Pending is one item waiting on Mario.

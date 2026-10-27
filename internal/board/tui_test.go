@@ -59,8 +59,8 @@ func TestModelAgentsToggle(t *testing.T) {
 	m := &model{r: &Renderer{}, snap: Load(filepath.Join("..", "..", "testdata", "agents-many")), vp: viewport.New(80, 10)}
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 14})
 	collapsed := ansi.Strip(m.top)
-	if !strings.HasSuffix(strings.Split(collapsed, "\n")[4], " +5") || lipgloss.Height(m.top) != 6 {
-		t.Errorf("collapsed: want 3 items and +5 in a 6-line fixed area:\n%s", collapsed)
+	if !strings.HasSuffix(strings.Split(collapsed, "\n")[4], " +6") || lipgloss.Height(m.top) != 6 {
+		t.Errorf("collapsed: want 3 items and +6 (8 agents, 1 external step) in a 6-line fixed area:\n%s", collapsed)
 	}
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
 	if top := ansi.Strip(m.top); top != collapsed {

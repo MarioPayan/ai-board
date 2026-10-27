@@ -1,8 +1,8 @@
 🔵 Fan-out review                                             ⏱ 1h00m · ↻ 3m ago
-   Agents reviewing  ███░░░░░░░ 1/3                               📥0 🔴1 🤖7 ⚠0
+   Agents reviewing  ███░░░░░░░ 1/3                           📥0 🔴1 🤖7 🟣1 ⚠0
 🔴  codex: second opinion                                           failed 13:50
-🤖  reviewer: load.go                                    ██████████ 50m/20m over
-🤖  reviewer: charts.go                               ██████████ 40m/30m over +5
+🟣  Review every package in parallel  8 subagents                            50m
+🤖  reviewer: load.go                                 ██████████ 50m/20m over +6
 ────────────────────────────────────────────────────────────────────────────────
 📋 Plan ────────────────────────────────────────────────────────────────────────
 ✔  Split the diff by package                                                 10m

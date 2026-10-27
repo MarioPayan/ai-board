@@ -1,8 +1,8 @@
 🟡 Board TUI                                                  ⏱ 1h00m · ↻ 3m ago
-   Esperando tu OK  ███░░░░░░░ 2/6                                📥1 🔴2 🤖2 ⚠2
+   Esperando tu OK  ███░░░░░░░ 2/6                            📥1 🔴2 🤖2 🟣1 ⚠2
 📥  Aprobar el layout                                                          ↗
 🔴  codex review                                                    failed 13:40
-✘   Instalar el hook   settings.json bloqueado                                +2
+✘   Instalar el hook   settings.json bloqueado                                +3
 ────────────────────────────────────────────────────────────────────────────────
 📋 Plan ────────────────────────────────────────────────────────────────────────
 ✔  Escribir SPEC.md                                                          15m
