@@ -246,10 +246,10 @@ func (m *model) footerGroups() []footGroup {
 	// tab only scrolls, so it does nothing when the whole body fits.
 	scrolls := m.vp.TotalLineCount() > m.vp.Height
 	return []footGroup{
-		{"move", []footKey{{"⇥", "sections", len(m.anchors) > 1 && scrolls}}},
+		{"", []footKey{{"⇥", "sect", len(m.anchors) > 1 && scrolls}}},
 		{"view", []footKey{
 			{"d", "done", finishedSteps(m.snap) > collapseAbove},
-			{"a", "agents", len(m.snap.Agents) > agentsShown},
+			{"a", "agents", agentsHidden(m.snap)},
 			{"c", "checks", hasPassingCheck(m.snap)},
 			{"l", "log", true},
 			{"g", "legend", true},
@@ -276,10 +276,8 @@ func (m *model) footer() string {
 			}
 			keys = append(keys, t)
 		}
-		l := strings.Join(keys, "  ")
-		if m.narrow {
-			l = strings.Join(keys, " ")
-		} else if g.name != "" {
+		l := strings.Join(keys, " ")
+		if !m.narrow && g.name != "" {
 			l = m.r.st.dim.Render(g.name) + " " + l
 		}
 		groups = append(groups, l)

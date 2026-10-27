@@ -410,3 +410,35 @@ func TestZeroCountsDarker(t *testing.T) {
 		}
 	}
 }
+
+// TestAgentsHidden: `a` has something to show exactly when an agent did not
+// make it into the three header slots, however few agents there are.
+func TestAgentsHidden(t *testing.T) {
+	run := Agent{Name: "r"}
+	bad := Agent{Name: "f", Failed: true}
+	pend := []Pending{{Text: "p"}}
+	cases := []struct {
+		name    string
+		pending []Pending
+		agents  []Agent
+		failed  int // failed steps
+		want    bool
+	}{
+		{"three agents fit", nil, []Agent{run, run, run}, 0, false},
+		{"four agents", nil, []Agent{run, run, run, run}, 0, true},
+		{"pending pushes a running agent out", pend, []Agent{bad, run}, 1, true},
+		{"failed agent still fits", pend, []Agent{bad}, 3, false},
+		{"pending pushes a failed agent out", []Pending{{Text: "a"}, {Text: "b"}, {Text: "c"}}, []Agent{bad}, 0, true},
+		{"no agents", pend, nil, 5, false},
+	}
+	for _, c := range cases {
+		s := &Snapshot{Agents: c.agents}
+		s.Board.Pending = c.pending
+		for i := 0; i < c.failed; i++ {
+			s.Board.Steps = append(s.Board.Steps, Step{State: "failed"})
+		}
+		if got := agentsHidden(s); got != c.want {
+			t.Errorf("%s: agentsHidden = %v, want %v", c.name, got, c.want)
+		}
+	}
+}

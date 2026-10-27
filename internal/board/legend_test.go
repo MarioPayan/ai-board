@@ -77,7 +77,7 @@ func TestModelLegendToggle(t *testing.T) {
 	}
 }
 
-const fullFooter = "move ⇥ sections │ view d done  a agents  c checks  l log  g legend │ h help  w narrow  q"
+const fullFooter = "⇥ sect │ view d done a agents c checks l log g legend │ h help w narrow q"
 
 // footerKeys strips the scroll indicator off the right edge of the footer.
 func footerKeys(m *model) (keys, indicator string) {
@@ -97,7 +97,7 @@ func TestModelFooterKeys(t *testing.T) {
 	cases := []struct{ fixture, active string }{
 		{"done-heavy", "⇥ d l g h w q"},
 		{"agents-many", "a l g h w q"},   // 8 agents, only a plan
-		{"agents-demo", "⇥ l g h w q"},   // 3 agents, 2 finished steps
+		{"agents-demo", "⇥ a l g h w q"}, // 3 agents, but pending and failures push the running ones out of the slots
 		{"checks-fail", "⇥ c l g h w q"}, // a passing check to reveal
 	}
 	for _, c := range cases {

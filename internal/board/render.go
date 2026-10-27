@@ -313,7 +313,7 @@ func elapsed(s *Snapshot, now time.Time) (time.Duration, bool) {
 
 // agentsShown is the number of header slots: rows for what needs attention,
 // whatever the board holds. The `a` key lists every agent in the body when
-// there are more agents than this.
+// some agent does not fit in them.
 const agentsShown = 3
 
 // slot is one header row: a table of icon | item | detail | right.
@@ -452,9 +452,37 @@ func sortAgents(in []Agent, now time.Time) []Agent {
 }
 
 // agentsInBody reports whether `a` lists every agent in the scrolling body:
-// only when there are more than the header slots could hold.
+// only when some agent did not make it into the header slots.
 func (r *Renderer) agentsInBody(s *Snapshot) bool {
-	return r.AllAgents && len(s.Agents) > agentsShown
+	return r.AllAgents && agentsHidden(s)
+}
+
+// agentsHidden reports whether an agent is left out of the header slots, by
+// the same order slots fills them: pending, failed agents, failed steps,
+// errors, running agents.
+func agentsHidden(s *Snapshot) bool {
+	var failed, running, rest int
+	for _, a := range s.Agents {
+		if a.Failed {
+			failed++
+		} else {
+			running++
+		}
+	}
+	for _, st := range s.Board.Steps {
+		if st.State == "failed" {
+			rest++
+		}
+	}
+	rest += len(s.AgentErrs)
+	if s.BoardErr != nil {
+		rest++
+	}
+	pending := len(s.Board.Pending)
+	if running > 0 {
+		return pending+failed+rest+running > agentsShown
+	}
+	return pending+failed > agentsShown
 }
 
 // agents renders every agent, sorted, one per line, then any agents.jsonl
