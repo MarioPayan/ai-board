@@ -361,10 +361,22 @@ func TestSlotsPriority(t *testing.T) {
 			t.Errorf("%s: last row %q, want suffix %q", c.name, last, c.more)
 		}
 	}
-	// pending rows: link as detail, `on you` on the right, no ┃ bar
+	// pending rows: the text without its link, a `↗` on the right, no ┃ bar
 	got := r.slots(full, 80, now)[0]
-	if strings.Contains(got, "┃") || !strings.Contains(got, "approve  https://x") || !strings.HasSuffix(got, "on you") {
+	if strings.Contains(got, "┃") || strings.Contains(got, "https://x") || !strings.HasPrefix(got, "📥  approve") || !strings.HasSuffix(got, "↗") {
 		t.Errorf("pending row = %q", got)
+	}
+	// in color the text is a hyperlink to the link; a path becomes file://
+	rc := &Renderer{Color: true}
+	rc.init()
+	link := &Snapshot{}
+	link.Board.Pending = []Pending{{Text: "approve", Link: "https://x"}, {Text: "push", Link: "/home/m/repo"}}
+	rows := rc.slots(link, 80, now)
+	if !strings.Contains(rows[0], ansi.SetHyperlink("https://x")) || !strings.Contains(rows[1], ansi.SetHyperlink("file:///home/m/repo")) {
+		t.Errorf("color pending rows lack hyperlinks: %q", rows[:2])
+	}
+	if got := ansi.Strip(rows[0]); strings.Contains(got, "https://x") || !strings.HasSuffix(got, "↗") {
+		t.Errorf("color pending row shows its link: %q", got)
 	}
 }
 

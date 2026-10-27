@@ -33,7 +33,7 @@ type Renderer struct {
 type Options struct {
 	Expand    bool // d, --expand: list every finished step instead of the collapsed summary
 	AllChecks bool // c, --checks: list passing checks too, not only failing ones
-	AllAgents bool // a, --agents: list every agent (in the body when more than agentsShown)
+	AllAgents bool // a, --agents: list every agent (in the body when one is not in the header slots)
 	Legend    bool // g, --legend: show the fixed plan-marker legend line
 }
 
@@ -319,6 +319,7 @@ const agentsShown = 3
 // slot is one header row: a table of icon | item | detail | right.
 type slot struct {
 	icon, item, detail, right string
+	link                      string // the item is a terminal hyperlink to it (color only)
 	iconSt, itemSt, detailSt  lipgloss.Style
 }
 
@@ -330,7 +331,13 @@ type slot struct {
 func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 	var items []slot
 	for _, p := range s.Board.Pending {
-		items = append(items, slot{icon: "📥", item: p.Text, detail: p.Link, right: r.st.noteWaiting.Render("on you"), itemSt: r.st.bold, detailSt: r.st.dim})
+		// the text gets the whole row: a link is a `↗` and, in color, a
+		// hyperlink on the text, since a cut URL or path reads as nothing
+		it := slot{icon: "📥", item: p.Text, link: p.Link, itemSt: r.st.bold}
+		if p.Link != "" {
+			it.right = r.st.dim.Render("↗")
+		}
+		items = append(items, it)
 	}
 	nPending := len(items)
 	agents := sortAgents(s.Agents, now) // failed first
@@ -384,7 +391,11 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 	iw = min(iw, room)
 	var out []string
 	for _, it := range items {
-		l := it.iconSt.Render(pad(it.icon, 2, false)) + "  " + it.itemSt.Render(pad(it.item, iw, false))
+		item := it.itemSt.Render(pad(it.item, iw, false))
+		if it.link != "" && r.Color {
+			item = ansi.SetHyperlink(hyperlinkURI(it.link)) + item + ansi.ResetHyperlink()
+		}
+		l := it.iconSt.Render(pad(it.icon, 2, false)) + "  " + item
 		if d := room - iw - 2; it.detail != "" && d > 0 {
 			l += "  " + it.detailSt.Render(trunc(it.detail, d))
 		}
@@ -403,6 +414,15 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 		}
 	}
 	return out
+}
+
+// hyperlinkURI makes a pending link openable from a terminal hyperlink: an
+// absolute path becomes a file:// URI, anything else is used as given.
+func hyperlinkURI(link string) string {
+	if strings.HasPrefix(link, "/") {
+		return "file://" + link
+	}
+	return link
 }
 
 // agentSlot is a header row for a failed or running agent.
