@@ -6,7 +6,7 @@ A read-only terminal viewer for Claude Code session boards. Claude and hooks wri
 
 ```
 ~/.claude/boards/<session-id>/
-  board.json            Claude: title, status, steps, pending
+  board.json            Claude (whole file, or `board step`): title, status, steps, pending
   status.json           Stop hook (lib/meta/stop-guard.py): latest status, overrides board.json status when newer
   agents.jsonl          hooks + `board agent`: running subagents (append-only)
   log.jsonl             hooks + `board log`: events (append-only)
@@ -149,8 +149,15 @@ board --once [--width N] [--expand] [--checks] [--agents] [--legend] [<id>]
 board log [--kind K] <text>      append to log.jsonl of $CLAUDE_CODE_SESSION_ID
 board agent start <id> <name> [--expect MIN]
 board agent stop <id> [--failed]
+board step <index|text-prefix> <state> [--note TEXT] [--link URL] [--dir D]
+board step add <text> [--state S] [--dir D]
+board check [--hours N] [--dir D]
 board hook                       read a Claude Code hook payload on stdin and append events
 ```
+
+`board step` edits `board.json` in place of a whole-file write: it reads the file, changes one step and replaces it atomically (temp file, rename). Every field it does not change, including ones this spec does not name, is kept; keys are written in sorted order. A board.json that does not parse is left untouched and the command fails. The step is a 1-based index or a case-insensitive prefix of exactly one step's text. `<state>` is one of the `steps[].state` values. Moving into `active`, `waiting` or `external` sets `started` (RFC 3339, local offset) when it is unset; moving into `done`, `failed` or `skipped` sets `ended` (kept when the step was already in that state); moving into any unfinished state removes `ended`. `--note` / `--link` set those fields, and an empty value removes them. `board step add` appends a step (`todo` unless `--state`), stamped the same way. `--dir` names the board directory; the default is `$CLAUDE_CODE_SESSION_ID`'s, created when missing.
+
+`board check` prints one line per step that looks stuck: `active`, `waiting` or `external` for more than `--hours` (default 4) since its `started` (`step <i> "<text>": <state> for <duration>`), and `active` with no `started` (`step <i> "<text>": active with no started`). Clean boards print nothing. It always exits 0 (errors go to stderr), and prints nothing without `--dir` and `$CLAUDE_CODE_SESSION_ID`; a Stop hook calls it.
 
 `board hook` handles:
 

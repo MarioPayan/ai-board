@@ -22,6 +22,9 @@ board --once --width 80 [--now 2026-10-26T12:00:00-05:00] [--expand] [--checks] 
 board log [--kind commit|note|link] <text>     # append to $CLAUDE_CODE_SESSION_ID's log
 board agent start <id> <name> [--expect MIN]
 board agent stop <id> [--failed]
+board step <index|text-prefix> <state> [--note T] [--link URL] [--dir D]   # move a step, stamping started/ended
+board step add <text> [--state S] [--dir D]    # append a step
+board check [--hours 4] [--dir D]              # one line per stuck step; always exits 0
 board hook                                     # Claude Code hook: reads the payload on stdin
 ```
 
