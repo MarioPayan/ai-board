@@ -83,10 +83,10 @@ func TestArchiveCmd(t *testing.T) {
 	}
 	mk("idle", `{"title":"x"}`, old)
 	mk("fresh", `{"title":"x"}`, time.Now())
-	mk("oldfmt", `{"steps":["a string step"]}`, time.Now())
-	mk("live", `{"title":"x"}`, old) // the current session: never touched
-	mk("live.md", "", old)           // its old-format file too
-	mk("gone.md", "", time.Now())    // loose file: old format whatever its age
+	mk("oldfmt", `{"steps":["a string step"]}`, time.Now()) // unparsable but live: kept
+	mk("live", `{"title":"x"}`, old)                        // the current session: never touched
+	mk("live.md", "", old)                                  // its old-format file too
+	mk("gone.md", "", time.Now())                           // loose file: old format whatever its age
 	run := func(args ...string) string {
 		var out bytes.Buffer
 		if err := cmdArchive(args, &out); err != nil {
@@ -94,14 +94,14 @@ func TestArchiveCmd(t *testing.T) {
 		}
 		return out.String()
 	}
-	want := "would archive gone.md  old format\nwould archive idle  idle 10d\nwould archive oldfmt  old format: json: cannot unmarshal string into Go struct field BoardFile.steps of type board.Step\n"
+	want := "would archive gone.md  old format\nwould archive idle  idle 10d\n"
 	if got := run("--dry-run"); got != want {
 		t.Errorf("dry run:\n%s\nwant\n%s", got, want)
 	}
 	if _, err := os.Stat(filepath.Join(root, ".archive")); !os.IsNotExist(err) {
 		t.Error("--dry-run created .archive")
 	}
-	if got := run("--days", "30"); got != "archived gone.md  old format\narchived oldfmt  old format: json: cannot unmarshal string into Go struct field BoardFile.steps of type board.Step\n" {
+	if got := run("--days", "30"); got != "archived gone.md  old format\n" {
 		t.Errorf("--days 30:\n%s", got)
 	}
 	if got := run(); got != "archived idle  idle 10d\n" {
@@ -112,7 +112,7 @@ func TestArchiveCmd(t *testing.T) {
 	for _, e := range ents {
 		names = append(names, e.Name())
 	}
-	if strings.Join(names, " ") != ".archive fresh live live.md" {
+	if strings.Join(names, " ") != ".archive fresh live live.md oldfmt" {
 		t.Errorf("left in root: %v", names)
 	}
 	if _, err := os.Stat(filepath.Join(root, ".archive", "idle", "board.json")); err != nil {

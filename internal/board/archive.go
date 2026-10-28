@@ -1,7 +1,6 @@
 package board
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,8 +9,9 @@ import (
 )
 
 // Archive moves into root/.archive/ every board directory under root with
-// no file modified within maxAge or whose board.json does not parse, and
-// every loose file there (the old one-file board format). Names that are
+// no file modified within maxAge, and every loose file there (the old
+// one-file board format). A directory whose board.json does not parse is
+// still a live board with a writer bug, so only idleness archives it. Names that are
 // keep or start with keep+"." are never touched. With dry it only reports.
 // It returns one line per entry: `archived <name>  <reason>` (`would
 // archive` with dry), or `skipped <name>: …`.
@@ -35,8 +35,6 @@ func Archive(root, keep string, maxAge time.Duration, now time.Time, dry bool) (
 		var reason string
 		if !e.IsDir() {
 			reason = "old format"
-		} else if err := boardErr(p); err != nil {
-			reason = "old format: " + err.Error()
 		} else if idle := now.Sub(newest(p)); idle >= maxAge {
 			reason = fmt.Sprintf("idle %dd", int(idle.Hours()/24))
 		}
@@ -58,16 +56,6 @@ func Archive(root, keep string, maxAge time.Duration, now time.Time, dry bool) (
 		out = append(out, verb+" "+name+"  "+reason)
 	}
 	return out, nil
-}
-
-// boardErr is the parse error of dir/board.json; a missing file is fine.
-func boardErr(dir string) error {
-	b, err := os.ReadFile(filepath.Join(dir, "board.json"))
-	if err != nil {
-		return nil
-	}
-	var bf BoardFile
-	return json.Unmarshal(b, &bf)
 }
 
 // newest is the latest mtime of dir or anything under it.
