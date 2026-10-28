@@ -92,6 +92,10 @@ func (r *Renderer) RenderHelp(width int) string {
 	item("✅❌⏳", "CI passed, failed, pending")
 	item("👍👎👀", "review approved, changes requested, pending")
 
+	sub("Running")
+	item("🚀", "a service the task started: name, url (the url opens it), login hint")
+	item("✅❌", "up or down at the last probe (every 30 s); ? not probed yet")
+
 	sub("Log")
 	item("◆", "commit")
 	item("•", "note")

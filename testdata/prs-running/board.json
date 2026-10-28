@@ -10,5 +10,9 @@
     { "repo": "kazemu/board", "n": 12, "title": "feat(tui): PRs and Running sections for the session board viewer", "url": "https://github.com/kazemu/board/pull/12", "state": "open", "ci": "pending", "review": "pending" },
     { "repo": "kazemu/skills", "n": 340, "title": "docs: board writer guide", "url": "https://github.com/kazemu/skills/pull/340", "state": "draft", "ci": "fail", "review": "" },
     { "repo": "kazemu/board", "n": 9, "title": "fix: footer width", "state": "merged", "ci": "pass", "review": "approved" }
+  ],
+  "running": [
+    { "name": "web", "url": "http://127.0.0.1:1/", "cmd": "pnpm dev", "login": "user in 1Password: Board dev" },
+    { "name": "worker", "cmd": "go run ./cmd/worker" }
   ]
 }

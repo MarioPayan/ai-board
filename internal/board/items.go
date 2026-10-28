@@ -91,3 +91,17 @@ func SetPR(dir, repo string, n int, fields map[string]string) error {
 func RmPR(dir, repo string, n int) error {
 	return remove(dir, "prs", matchPR(repo, n), fmt.Sprintf("PR %s#%d", repo, n))
 }
+
+func matchRunning(name string) func(obj) bool {
+	return func(o obj) bool { return str(o, "name") == name }
+}
+
+// SetRunning upserts the running entry name with fields (url, cmd, login).
+func SetRunning(dir, name string, fields map[string]string) error {
+	return upsert(dir, "running", matchRunning(name), map[string]any{"name": name}, fields)
+}
+
+// RmRunning removes the running entry name.
+func RmRunning(dir, name string) error {
+	return remove(dir, "running", matchRunning(name), "running entry "+quote(name))
+}

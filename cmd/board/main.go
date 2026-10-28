@@ -28,6 +28,8 @@ const usage = `usage:
   board archive [--days N] [--dry-run]           move idle and old-format boards to .archive
   board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]
   board pr rm <repo#n> [--dir D]
+  board run set <name> [--url U] [--cmd C] [--login HINT] [--dir D]
+  board run rm <name> [--dir D]
   board hook                                    read a hook payload on stdin
 `
 
@@ -48,6 +50,9 @@ func main() {
 			return
 		case "pr":
 			exit(cmdPR(os.Args[2:]))
+			return
+		case "run":
+			exit(cmdRun(os.Args[2:]))
 			return
 		case "archive":
 			exit(cmdArchive(os.Args[2:], os.Stdout))
@@ -100,7 +105,9 @@ func cmdView(args []string, stdout io.Writer) error {
 		}
 	}
 	if *once {
-		fmt.Fprint(stdout, board.Once(board.Load(dir), *width, now, board.Options{Expand: *expand, AllChecks: *checks, AllAgents: *agents, Legend: *legend}))
+		snap := board.Load(dir)
+		up := board.ProbeAll(snap.Board.Running) // once, 2 s at most
+		fmt.Fprint(stdout, board.Once(snap, *width, now, board.Options{Expand: *expand, AllChecks: *checks, AllAgents: *agents, Legend: *legend, Up: up}))
 		return nil
 	}
 	return board.Run(dir, name)
@@ -337,6 +344,28 @@ func cmdPR(args []string) error {
 		return board.RmPR(dir, repo, n)
 	}
 	return board.SetPR(dir, repo, n, fields)
+}
+
+func cmdRun(args []string) error {
+	const use = "usage: board run set <name> [--url U] [--cmd C] [--login HINT] [--dir D]\n       board run rm <name> [--dir D]"
+	args, fields, err := takeFields(args, "dir", "url", "cmd", "login")
+	if err != nil {
+		return err
+	}
+	dirFlag := fields["dir"]
+	delete(fields, "dir")
+	if len(args) < 2 || (args[0] != "set" && args[0] != "rm") || (args[0] == "rm" && len(fields) > 0) {
+		return errors.New(use)
+	}
+	name := strings.Join(args[1:], " ")
+	dir, err := boardDir(dirFlag)
+	if err != nil {
+		return err
+	}
+	if args[0] == "rm" {
+		return board.RmRunning(dir, name)
+	}
+	return board.SetRunning(dir, name, fields)
 }
 
 func cmdArchive(args []string, stdout io.Writer) error {

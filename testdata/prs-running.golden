@@ -12,3 +12,7 @@
 kazemu/board#12 feat(tui): PRs and Running sections for the ses…         ⏳ 👀 ↗
 kazemu/skills#340 docs: board writer guide                        draft  ❌    ↗
 kazemu/board#9 fix: footer width                                  merged ✅ 👍
+
+🚀 Running ─────────────────────────────────────────────────────────────────────
+❌ web  http://127.0.0.1:1/                         user in 1Password: Board dev
+?  worker

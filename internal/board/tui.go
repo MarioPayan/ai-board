@@ -18,6 +18,11 @@ const debounce = 150 * time.Millisecond
 
 type tickMsg time.Time
 type fileMsg struct{}
+type probeMsg map[string]bool // running url → up
+type probeTickMsg struct{}
+
+// probeEvery is how often the live viewer probes the running urls.
+const probeEvery = 30 * time.Second
 
 type model struct {
 	dir, name string
@@ -111,8 +116,15 @@ func (m *model) waitFile() tea.Cmd {
 	return func() tea.Msg { <-m.events; return fileMsg{} }
 }
 
+// probe probes the running urls off the UI goroutine; the urls are read
+// now, so the command never touches the model.
+func (m *model) probe() tea.Cmd {
+	rs := m.snap.Board.Running
+	return func() tea.Msg { return probeMsg(ProbeAll(rs)) }
+}
+
 func (m *model) Init() tea.Cmd {
-	return tea.Batch(tea.SetWindowTitle("board: "+m.name), tick(), m.waitFile())
+	return tea.Batch(tea.SetWindowTitle("board: "+m.name), tick(), m.waitFile(), m.probe())
 }
 
 func (m *model) layout() {
@@ -158,6 +170,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reload()
 		m.layout()
 		return m, m.waitFile()
+	case probeMsg:
+		m.r.Up = msg
+		m.layout()
+		return m, tea.Tick(probeEvery, func(time.Time) tea.Msg { return probeTickMsg{} })
+	case probeTickMsg:
+		return m, m.probe()
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":

@@ -142,6 +142,33 @@ func TestPRCmd(t *testing.T) {
 	}
 }
 
+func TestRunCmd(t *testing.T) {
+	dir := t.TempDir()
+	for _, args := range [][]string{
+		{"set", "web", "--url", "http://localhost:3000", "--cmd", "pnpm dev", "--dir", dir},
+		{"set", "web", "--login", "user in 1Password: Foo", "--dir", dir},
+		{"set", "api", "server", "--dir", dir}, // names may have spaces
+		{"rm", "api", "server", "--dir", dir},
+	} {
+		if err := cmdRun(args); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "board.json"))
+	got := string(b)
+	for _, want := range []string{`"name": "web"`, `"url": "http://localhost:3000"`, `"cmd": "pnpm dev"`, `"login": "user in 1Password: Foo"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("board.json misses %s:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "api") {
+		t.Errorf("rm left api server:\n%s", got)
+	}
+	if err := cmdRun([]string{"rm", "nope", "--dir", dir}); err == nil {
+		t.Error("rm of a missing entry should fail")
+	}
+}
+
 func TestStepCmd(t *testing.T) {
 	dir := t.TempDir()
 	for _, args := range [][]string{

@@ -35,6 +35,8 @@ type Options struct {
 	AllChecks bool // c, --checks: list passing checks too, not only failing ones
 	AllAgents bool // a, --agents: list every agent (in the body when one is not in the header slots)
 	Legend    bool // g, --legend: show the fixed plan-marker legend line
+
+	Up map[string]bool // running url → answered the last probe; absent: not probed
 }
 
 // Colours are ANSI 16-colour indices so the terminal theme decides the shade.
@@ -145,6 +147,10 @@ func (r *Renderer) Render(s *Snapshot, width int, now time.Time) Frame {
 	if len(s.Board.PRs) > 0 {
 		heading("🔀", "PRs")
 		body.cat(r.prs(s, width))
+	}
+	if len(s.Board.Running) > 0 {
+		heading("🚀", "Running")
+		body.cat(r.running(s, width))
 	}
 	for i, sec := range s.Sections {
 		if i == 0 {
@@ -733,6 +739,43 @@ func (r *Renderer) prs(s *Snapshot, width int) block {
 			left = ansi.SetHyperlink(hyperlinkURI(p.URL)) + left + ansi.ResetHyperlink()
 		}
 		b.add(strings.TrimRight(left+strings.Repeat(" ", max(0, width-lw-rw))+r.st.dim.Render(right), " "))
+	}
+	return b
+}
+
+// running renders one row per running entry: `✅` up, `❌` down or a dim
+// `?` not probed, the name in bold, its url dim (in color a hyperlink), and
+// on the right, dim, the login hint. The url is cut first, then the name.
+func (r *Renderer) running(s *Snapshot, width int) block {
+	var b block
+	for _, run := range s.Board.Running {
+		ind := r.st.dim.Render("? ")
+		if up, ok := r.Up[run.URL]; ok {
+			ind = "❌"
+			if up {
+				ind = "✅"
+			}
+		}
+		login := trunc(run.Login, width/2)
+		room := width - 3 // indicator and gap
+		if login != "" {
+			room -= ansi.StringWidth(login) + 2
+		}
+		name := trunc(run.Name, room)
+		l := ind + " " + r.st.bold.Render(name)
+		lw := 3 + ansi.StringWidth(name)
+		if u := trunc(run.URL, room-ansi.StringWidth(name)-2); u != "" {
+			us := r.st.dim.Render(u)
+			if r.Color {
+				us = ansi.SetHyperlink(hyperlinkURI(run.URL)) + us + ansi.ResetHyperlink()
+			}
+			l += "  " + us
+			lw += 2 + ansi.StringWidth(u)
+		}
+		if login != "" {
+			l += strings.Repeat(" ", max(0, width-lw-ansi.StringWidth(login))) + r.st.dim.Render(login)
+		}
+		b.add(l)
 	}
 	return b
 }
