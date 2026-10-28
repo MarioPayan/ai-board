@@ -182,3 +182,40 @@ func TestHook(t *testing.T) {
 		t.Errorf("boards root should only hold s1, got %d entries", len(ents))
 	}
 }
+
+// SubagentStart names the agent `<type>: <description>` from the meta file
+// Claude Code writes next to the session transcript.
+func TestHookAgentDescription(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := filepath.Join(home, ".claude", "boards", "s1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	transcript := filepath.Join(home, "projects", "-repo", "s1.jsonl")
+	sub := filepath.Join(home, "projects", "-repo", "s1", "subagents")
+	write(t, filepath.Join(sub, "agent-ag1.meta.json"), `{"agentType":"repo-worker","description":"Implement board sections","toolUseId":"t"}`)
+	write(t, filepath.Join(sub, "agent-ag3.meta.json"), `{broken`)
+	start := func(id, transcript string) string {
+		p, _ := json.Marshal(map[string]string{"session_id": "s1", "hook_event_name": "SubagentStart", "agent_id": id, "agent_type": "repo-worker", "transcript_path": transcript})
+		return string(p)
+	}
+	for _, p := range []string{
+		start("ag1", transcript),
+		start("ag2", transcript), // no meta file
+		start("ag3", transcript), // unreadable meta file
+		start("ag1", ""),         // no transcript_path
+	} {
+		if err := Hook(strings.NewReader(p)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var names []string
+	for _, e := range readJSONL(t, filepath.Join(dir, "agents.jsonl")) {
+		names = append(names, e["name"].(string))
+	}
+	want := "repo-worker: Implement board sections|repo-worker|repo-worker|repo-worker"
+	if got := strings.Join(names, "|"); got != want {
+		t.Errorf("names = %s, want %s", got, want)
+	}
+}

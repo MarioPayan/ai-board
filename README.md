@@ -35,7 +35,7 @@ board hook                                     # Claude Code hook: reads the pay
 
 Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between sections, `l` toggles the full log, `h` toggles a full-screen help (every marker, icon, colour and key), `d` expands or collapses finished steps, `a` lists every agent in the body, `c` lists every check or only the failing ones, `g` shows or hides a legend line of the plan markers, `w` toggles a narrow footer with keys only, `q` quits. The six-line header (title, status with counts, three slots for what needs attention, a rule) and the one-line footer keep the same shape: the footer shows every key in a fixed place, darker when it would do nothing, and `↓ N` or `end` on the right while the body scrolls.
 
-`board hook` handles `SubagentStart`, `SubagentStop` and `PostToolUse` (Bash `git commit`). It only writes into a board directory that already exists and always exits 0.
+`board hook` handles `SubagentStart` (named `<agent_type>: <task description>` from the subagent's meta file), `SubagentStop` and `PostToolUse` (Bash `git commit`). It only writes into a board directory that already exists and always exits 0.
 
 ## Development
 

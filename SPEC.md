@@ -176,7 +176,7 @@ board hook                       read a Claude Code hook payload on stdin and ap
 
 `board hook` handles:
 
-- `SubagentStart` → agent `start` (id `agent_id`, name `agent_type`).
+- `SubagentStart` → agent `start` (id `agent_id`). The name is `<agent_type>: <description>`, the description read from `<transcript_path without .jsonl>/subagents/agent-<agent_id>.meta.json` (field `description`), which Claude Code writes before the event; when that file is missing, unreadable or has no description, the name is `agent_type` (or `agent_id` when that is empty too).
 - `SubagentStop` → agent `stop`.
 - `PostToolUse` for `Bash` whose command runs `git commit` and whose output has git's `[<branch> <sha>] <subject>` line → log entry, `kind: commit`.
 

@@ -90,13 +90,14 @@ func ParseCommit(out string) (branch, sha, subject string, ok bool) {
 var gitCommitRe = regexp.MustCompile(`\bgit\b[^|;&\n]*\bcommit\b`)
 
 type hookPayload struct {
-	SessionID    string          `json:"session_id"`
-	Event        string          `json:"hook_event_name"`
-	AgentID      string          `json:"agent_id"`
-	AgentType    string          `json:"agent_type"`
-	ToolName     string          `json:"tool_name"`
-	ToolInput    json.RawMessage `json:"tool_input"`
-	ToolResponse json.RawMessage `json:"tool_response"`
+	SessionID      string          `json:"session_id"`
+	TranscriptPath string          `json:"transcript_path"`
+	Event          string          `json:"hook_event_name"`
+	AgentID        string          `json:"agent_id"`
+	AgentType      string          `json:"agent_type"`
+	ToolName       string          `json:"tool_name"`
+	ToolInput      json.RawMessage `json:"tool_input"`
+	ToolResponse   json.RawMessage `json:"tool_response"`
 }
 
 // toolOutput accepts a string or an object with stdout.
@@ -110,6 +111,32 @@ func toolOutput(raw json.RawMessage) string {
 	}
 	_ = json.Unmarshal(raw, &o)
 	return o.Stdout
+}
+
+// agentName is `<agent_type>: <description>` for a starting subagent. Claude
+// Code writes the task description to
+// `<transcript without .jsonl>/subagents/agent-<agent_id>.meta.json` before
+// the start event; without it the name is the agent type (or its id).
+func agentName(p hookPayload) string {
+	name := p.AgentType
+	if name == "" {
+		name = p.AgentID
+	}
+	if p.TranscriptPath == "" || strings.ContainsAny(p.AgentID, `/\`) {
+		return name
+	}
+	meta := filepath.Join(strings.TrimSuffix(p.TranscriptPath, ".jsonl"), "subagents", "agent-"+p.AgentID+".meta.json")
+	b, err := os.ReadFile(meta)
+	if err != nil {
+		return name
+	}
+	var m struct {
+		Description string `json:"description"`
+	}
+	if json.Unmarshal(b, &m) != nil || strings.TrimSpace(m.Description) == "" {
+		return name
+	}
+	return name + ": " + strings.TrimSpace(m.Description)
 }
 
 // Hook handles one Claude Code hook payload. It only writes into a board
@@ -136,11 +163,7 @@ func Hook(r io.Reader) error {
 		if p.AgentID == "" {
 			return errors.New("no agent_id")
 		}
-		name := p.AgentType
-		if name == "" {
-			name = p.AgentID
-		}
-		return AgentStart(dir, p.AgentID, name, 0)
+		return AgentStart(dir, p.AgentID, agentName(p), 0)
 	case "SubagentStop":
 		if p.AgentID == "" {
 			return errors.New("no agent_id")
