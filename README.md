@@ -25,6 +25,7 @@ board agent stop <id> [--failed]
 board step <index|text-prefix> <state> [--note T] [--link URL] [--dir D]   # move a step, stamping started/ended
 board step add <text> [--state S] [--dir D]    # append a step
 board check [--hours 4] [--dir D]              # one line per stuck step; always exits 0
+board archive [--days 7] [--dry-run]           # move idle and old-format boards to ~/.claude/boards/.archive
 board hook                                     # Claude Code hook: reads the payload on stdin
 ```
 

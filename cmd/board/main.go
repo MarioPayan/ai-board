@@ -25,6 +25,7 @@ const usage = `usage:
   board step <index|text-prefix> <state> [--note T] [--link URL] [--dir D]
   board step add <text> [--state S] [--dir D]
   board check [--hours N] [--dir D]              list stuck steps
+  board archive [--days N] [--dry-run]           move idle and old-format boards to .archive
   board hook                                    read a hook payload on stdin
 `
 
@@ -42,6 +43,9 @@ func main() {
 			return
 		case "step":
 			exit(cmdStep(os.Args[2:]))
+			return
+		case "archive":
+			exit(cmdArchive(os.Args[2:], os.Stdout))
 			return
 		case "check":
 			// a Stop hook calls it: report on stderr, always exit 0
@@ -285,6 +289,32 @@ func ptrIf(ok bool, s string) *string {
 		return nil
 	}
 	return &s
+}
+
+func cmdArchive(args []string, stdout io.Writer) error {
+	args, _, dry, _ := takeFlag(args, "dry-run", false)
+	args, days, found, err := takeFlag(args, "days", true)
+	if err != nil {
+		return err
+	}
+	if len(args) > 0 {
+		return errors.New("usage: board archive [--days N] [--dry-run]")
+	}
+	d := 7.0
+	if found {
+		if d, err = strconv.ParseFloat(days, 64); err != nil || d < 0 {
+			return fmt.Errorf("--days: want a number of days, got %q", days)
+		}
+	}
+	root, err := board.BoardsRoot()
+	if err != nil {
+		return err
+	}
+	lines, err := board.Archive(root, os.Getenv("CLAUDE_CODE_SESSION_ID"), time.Duration(d*24*float64(time.Hour)), time.Now(), dry)
+	for _, l := range lines {
+		fmt.Fprintln(stdout, l)
+	}
+	return err
 }
 
 // cmdCheck prints one line per stuck step (see board.StuckSteps). Without

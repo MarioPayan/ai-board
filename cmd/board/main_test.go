@@ -41,6 +41,70 @@ func TestCheckCmd(t *testing.T) {
 	}
 }
 
+func TestArchiveCmd(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "live")
+	root := filepath.Join(home, ".claude", "boards")
+	old := time.Now().Add(-10 * 24 * time.Hour)
+	mk := func(name, board string, mtime time.Time) {
+		p := filepath.Join(root, name)
+		if strings.HasSuffix(name, ".md") {
+			if err := os.MkdirAll(root, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p, []byte("# old"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			if err := os.MkdirAll(filepath.Join(p, "sections"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(p, "board.json"), []byte(board), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		_ = filepath.Walk(p, func(f string, _ os.FileInfo, _ error) error { return os.Chtimes(f, mtime, mtime) })
+	}
+	mk("idle", `{"title":"x"}`, old)
+	mk("fresh", `{"title":"x"}`, time.Now())
+	mk("oldfmt", `{"steps":["a string step"]}`, time.Now())
+	mk("live", `{"title":"x"}`, old) // the current session: never touched
+	mk("live.md", "", old)           // its old-format file too
+	mk("gone.md", "", time.Now())    // loose file: old format whatever its age
+	run := func(args ...string) string {
+		var out bytes.Buffer
+		if err := cmdArchive(args, &out); err != nil {
+			t.Fatal(err)
+		}
+		return out.String()
+	}
+	want := "would archive gone.md  old format\nwould archive idle  idle 10d\nwould archive oldfmt  old format: json: cannot unmarshal string into Go struct field BoardFile.steps of type board.Step\n"
+	if got := run("--dry-run"); got != want {
+		t.Errorf("dry run:\n%s\nwant\n%s", got, want)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".archive")); !os.IsNotExist(err) {
+		t.Error("--dry-run created .archive")
+	}
+	if got := run("--days", "30"); got != "archived gone.md  old format\narchived oldfmt  old format: json: cannot unmarshal string into Go struct field BoardFile.steps of type board.Step\n" {
+		t.Errorf("--days 30:\n%s", got)
+	}
+	if got := run(); got != "archived idle  idle 10d\n" {
+		t.Errorf("second run:\n%s", got)
+	}
+	ents, _ := os.ReadDir(root)
+	var names []string
+	for _, e := range ents {
+		names = append(names, e.Name())
+	}
+	if strings.Join(names, " ") != ".archive fresh live live.md" {
+		t.Errorf("left in root: %v", names)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".archive", "idle", "board.json")); err != nil {
+		t.Error("idle board not moved whole:", err)
+	}
+}
+
 func TestStepCmd(t *testing.T) {
 	dir := t.TempDir()
 	for _, args := range [][]string{
