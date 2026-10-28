@@ -1,6 +1,6 @@
 # board
 
-A read-only terminal viewer for Claude Code session boards. Claude and hooks write small files into `~/.claude/boards/<session-id>/`; `board` watches that directory and renders what needs Mario (pending items) and running subagents at the top, then the plan, the sections (Markdown, charts, tables, checks) under Details, and a log.
+A read-only terminal viewer for Claude Code session boards. Claude and hooks write small files into `~/.claude/boards/<session-id>/`; `board` watches that directory and renders what needs Mario (pending items) and running subagents at the top, then the plan, the PRs the task tracks, the sections (Markdown, charts, tables, checks) under Details, and a log.
 
 The file formats, layout, keys and CLI are defined in [SPEC.md](SPEC.md).
 
@@ -26,6 +26,8 @@ board step <index|text-prefix> <state> [--note T] [--link URL] [--dir D]   # mov
 board step add <text> [--state S] [--dir D]    # append a step
 board check [--hours 4] [--dir D]              # one line per stuck step; always exits 0
 board archive [--days 7] [--dry-run]           # move idle and old-format boards to ~/.claude/boards/.archive
+board pr set <repo#n> [--title T] [--url U] [--state open|draft|merged|closed] [--ci pass|fail|pending] [--review approved|changes|pending]
+board pr rm <repo#n>                           # PRs section: one row per PR, CI ✅❌⏳, review 👍👎👀
 board hook                                     # Claude Code hook: reads the payload on stdin
 ```
 

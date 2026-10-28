@@ -86,6 +86,12 @@ func (r *Renderer) RenderHelp(width int) string {
 	item("✅", "all checks pass")
 	item("❌", "checks failed; only the failing ones are listed")
 
+	sub("PRs")
+	item("🔀", "repo#n title; the text opens the PR (↗ when it has a link)")
+	item("draft", "state word: draft, merged or closed (dim); open shows none")
+	item("✅❌⏳", "CI passed, failed, pending")
+	item("👍👎👀", "review approved, changes requested, pending")
+
 	sub("Log")
 	item("◆", "commit")
 	item("•", "note")

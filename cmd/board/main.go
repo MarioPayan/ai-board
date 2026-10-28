@@ -26,6 +26,8 @@ const usage = `usage:
   board step add <text> [--state S] [--dir D]
   board check [--hours N] [--dir D]              list stuck steps
   board archive [--days N] [--dry-run]           move idle and old-format boards to .archive
+  board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]
+  board pr rm <repo#n> [--dir D]
   board hook                                    read a hook payload on stdin
 `
 
@@ -43,6 +45,9 @@ func main() {
 			return
 		case "step":
 			exit(cmdStep(os.Args[2:]))
+			return
+		case "pr":
+			exit(cmdPR(os.Args[2:]))
 			return
 		case "archive":
 			exit(cmdArchive(os.Args[2:], os.Stdout))
@@ -289,6 +294,49 @@ func ptrIf(ok bool, s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// takeFields removes `--<name> V` for each name from args and returns the
+// values given, keyed by name.
+func takeFields(args []string, names ...string) ([]string, map[string]string, error) {
+	fields := map[string]string{}
+	for _, n := range names {
+		var v string
+		var found bool
+		var err error
+		if args, v, found, err = takeFlag(args, n, true); err != nil {
+			return nil, nil, err
+		}
+		if found {
+			fields[n] = v
+		}
+	}
+	return args, fields, nil
+}
+
+func cmdPR(args []string) error {
+	const use = "usage: board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]\n       board pr rm <repo#n> [--dir D]"
+	args, fields, err := takeFields(args, "dir", "title", "url", "state", "ci", "review")
+	if err != nil {
+		return err
+	}
+	dirFlag := fields["dir"]
+	delete(fields, "dir")
+	if len(args) != 2 || (args[0] != "set" && args[0] != "rm") || (args[0] == "rm" && len(fields) > 0) {
+		return errors.New(use)
+	}
+	repo, n, err := board.ParsePRRef(args[1])
+	if err != nil {
+		return err
+	}
+	dir, err := boardDir(dirFlag)
+	if err != nil {
+		return err
+	}
+	if args[0] == "rm" {
+		return board.RmPR(dir, repo, n)
+	}
+	return board.SetPR(dir, repo, n, fields)
 }
 
 func cmdArchive(args []string, stdout io.Writer) error {

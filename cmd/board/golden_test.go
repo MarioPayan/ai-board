@@ -33,6 +33,7 @@ var cases = []goldenCase{
 	{"checks-pass", "checks-pass", "2026-10-26T15:30:00-05:00", 3 * time.Minute, nil},
 	{"checks-fail", "checks-fail", "2026-10-26T15:30:00-05:00", 3 * time.Minute, nil},                      // only failing checks
 	{"checks-fail-all", "checks-fail", "2026-10-26T15:30:00-05:00", 3 * time.Minute, []string{"--checks"}}, // every check
+	{"prs-running", "prs-running", "2026-10-27T11:00:00-05:00", 3 * time.Minute, nil},
 }
 
 // copyFixture copies a fixture into a temp dir and pins every mtime to

@@ -33,7 +33,8 @@ Every file is optional. A missing directory renders a "⏳ waiting for <path>" s
     { "text": "Construir decision deck", "state": "waiting", "note": "tu OK a la lista" },
     { "text": "Publicar artefacto", "state": "todo" }
   ],
-  "pending": [ { "text": "Aprobar el deck", "link": "https://claude.ai/..." } ]
+  "pending": [ { "text": "Aprobar el deck", "link": "https://claude.ai/..." } ],
+  "prs": [ { "repo": "kazemu/board", "n": 12, "title": "feat(tui): PRs section", "url": "https://github.com/kazemu/board/pull/12", "state": "open", "ci": "pending", "review": "pending" } ]
 }
 ```
 
@@ -42,6 +43,7 @@ Every file is optional. A missing directory renders a "⏳ waiting for <path>" s
 - `steps[].state`: `done` ✅, `active` ▶️, `waiting` (on Mario) 📥, `external` (CI, an approval, a deploy) ⏳, `failed` ❌, `todo` ⚪, `skipped` (shown like done, struck through). `note` is one clause shown inline after the step text (what it waits on, why it failed, why skipped). `link` is optional, for `external` steps: the CI run, PR or page being awaited, opened from the header slot.
 - `started` / `ended` are RFC 3339. The viewer derives times from them; writers never compute durations.
 - All steps stay in the list for the whole task. The viewer collapses finished steps into one summary line when there are more than three (see Layout); writers never remove them.
+- `prs` (optional): the pull requests the task tracks, one per `repo` + `n`. `state` is `open`, `draft`, `merged` or `closed`; `ci` is `pass`, `fail`, `pending` or empty; `review` is `approved`, `changes` (changes requested), `pending` or empty; `title` and `url` are optional. `board pr set|rm` edits them (see CLI). They render in their own block (see Layout) and do not change the header counts: a failing CI is the PR's own state, already visible in its row, and the step that waits on it is the `external` step the header counts.
 
 ## agents.jsonl
 
@@ -119,24 +121,25 @@ Fixed area: always exactly six lines while a board is loaded, so its shape never
 
 A missing directory renders only the `⏳ waiting for <path>` line instead.
 
-Scrolling body, top to bottom; each heading is a bold title followed by a dim rule, and a block with nothing to show is omitted. The first block sits right under the fixed area's rule; one blank line separates each top-level block (Agents, Plan, Details, Log) from the next; a subsection title sits directly on its body, with no blank line:
+Scrolling body, top to bottom; each heading is a bold title followed by a dim rule, and a block with nothing to show is omitted. The first block sits right under the fixed area's rule; one blank line separates each top-level block (Agents, Plan, PRs, Details, Log) from the next; a subsection title sits directly on its body, with no blank line:
 
 5. **🤖 Agents**: every agent (failed first, then as in the slots, with any agents.jsonl parse errors), only when `a` (live viewer) or `--agents` (`--once`) is on and some agent is not in the header slots. The slots keep showing the top items.
 6. **📋 Plan**: every step as `<marker> <text> — <note>`, the note coloured by state (waiting yellow, failed red, external magenta, others dim). The right column means one thing per state: done and skipped show their duration (`ended - started`, blank when either is missing); active shows `⏱ <elapsed>`; other states show nothing. The active step's marker is `▶` in an accent colour and, in the live viewer, its whole row has a subtle background. When a line is too long the note is truncated first (down to 6 cells), then the text (down to 20 cells); if it still does not fit, the note is dropped.
    When more than three steps are done or skipped, they collapse into one line, `✅ <N> · last: <text of the most recently ended one>` with that step's duration on the right, placed where the first finished step was. `d` toggles this in the live viewer; `--once` renders collapsed unless `--expand` is given.
-7. **🔎 Details**: every file in `sections/`, in order, each under its own title as a bold subheading.
-8. **📜 Log**: the five newest entries.
+7. **🔀 PRs**: one row per `prs` entry, in file order: `<repo>#<n> <title>` on the left (the title cut with `…` to fit; in color a terminal hyperlink to `url`, like a pending item; dim when merged or closed), and on the right, dim, in columns aligned across rows: the state word (`draft`, `merged`, `closed`; none for `open`), CI (`✅` pass, `❌` fail, `⏳` pending), review (`👍` approved, `👎` changes requested, `👀` pending) and `↗` when there is a url. A column no row uses takes no space. After the plan because it is the plan's output, before Details because it is live state rather than notes.
+8. **🔎 Details**: every file in `sections/`, in order, each under its own title as a bold subheading.
+9. **📜 Log**: the five newest entries.
 
 Live viewer only, below the body:
 
 - **Legend** (hidden by default; `g` shows or hides it): one fixed dim line naming the plan markers, `▶️ active · 📥 on you · ⏳ external · ❌ failed · ⚪ todo · ✅ done`, just above the footer; the body gives up a line for it. Entries that do not fit the width are dropped from the end and replaced by `…`. `--once --legend` appends the same line after a blank line.
 - **Footer**: always exactly one line, every key in a fixed place in three groups: `⇥ sect │ view d done a agents c checks l log g legend │ h help w narrow q` (73 cells, so it fits 80 columns with the indicator). The group name and `│` are dim. A key that would do nothing right now is drawn darker, not left out: `⇥` with fewer than two jump targets or when the whole body fits, `d` with three finished steps or fewer, `a` when every agent is in the header slots, `c` when no checks section has a passing check to reveal. Pinned to the right edge, dim: `↓ <N>` (lines below the viewport), `end` at the bottom, nothing when the whole body fits. `w` toggles a narrow form with keys only, in the same places: `⇥ │ d a c l g │ h w q` and the indicator. There is no automatic switch by width; a pane narrower than the line truncates it.
 
-`h` replaces the body with a full-screen help (the fixed area, legend and footer stay): every step marker, status emoji, header, slot and count icon, checks and log markers, what each colour means, and every key. `h` again, or `l`, leaves it.
+`h` replaces the body with a full-screen help (the fixed area, legend and footer stay): every step marker, status emoji, header, slot and count icon, checks, PR and log markers, what each colour means, and every key. `h` again, or `l`, leaves it.
 
 The six header lines stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
 
-Keys (single keys, no Shift except `shift+tab`): `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` (active only when the body scrolls) jump between Agents (when in the body), Plan, each Details subsection and Log, `l` toggles a full-screen log, `h` toggles the full-screen help, `d` expands or collapses finished steps, `a` lists every agent in the body, `c` lists every check or only the failing ones, `g` shows or hides the legend line, `w` toggles the narrow footer, `q` quits.
+Keys (single keys, no Shift except `shift+tab`): `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` (active only when the body scrolls) jump between Agents (when in the body), Plan, PRs, each Details subsection and Log, `l` toggles a full-screen log, `h` toggles the full-screen help, `d` expands or collapses finished steps, `a` lists every agent in the body, `c` lists every check or only the failing ones, `g` shows or hides the legend line, `w` toggles the narrow footer, `q` quits.
 
 The viewer sets the terminal title to `board: <session-id>`; the opener script finds an existing pane by that title.
 
@@ -153,10 +156,14 @@ board step <index|text-prefix> <state> [--note TEXT] [--link URL] [--dir D]
 board step add <text> [--state S] [--dir D]
 board check [--hours N] [--dir D]
 board archive [--days N] [--dry-run]
+board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]
+board pr rm <repo#n> [--dir D]
 board hook                       read a Claude Code hook payload on stdin and append events
 ```
 
 `board step` edits `board.json` in place of a whole-file write: it reads the file, changes one step and replaces it atomically (temp file, rename). Every field it does not change, including ones this spec does not name, is kept; keys are written in sorted order. A board.json that does not parse is left untouched and the command fails. The step is a 1-based index or a case-insensitive prefix of exactly one step's text. `<state>` is one of the `steps[].state` values. Moving into `active`, `waiting` or `external` sets `started` (RFC 3339, local offset) when it is unset; moving into `done`, `failed` or `skipped` sets `ended` (kept when the step was already in that state); moving into any unfinished state removes `ended`. `--note` / `--link` set those fields, and an empty value removes them. `board step add` appends a step (`todo` unless `--state`), stamped the same way. `--dir` names the board directory; the default is `$CLAUDE_CODE_SESSION_ID`'s, created when missing.
+
+`board pr set` adds the PR `repo#n` to `prs` or updates it: only the fields given change, and an empty value removes one. Values outside the `prs` enums are refused. `board pr rm` removes it (an error when absent). Both edit board.json like `board step`.
 
 `board check` prints one line per step that looks stuck: `active`, `waiting` or `external` for more than `--hours` (default 4) since its `started` (`step <i> "<text>": <state> for <duration>`), and `active` with no `started` (`step <i> "<text>": active with no started`). Clean boards print nothing. It always exits 0 (errors go to stderr), and prints nothing without `--dir` and `$CLAUDE_CODE_SESSION_ID`; a Stop hook calls it.
 

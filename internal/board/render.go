@@ -90,7 +90,7 @@ func (r *Renderer) init() {
 
 // Frame is a rendered board: Top stays fixed, Body scrolls. Anchors are the
 // Body line numbers that tab/shift+tab jump between: Agents (when in the
-// body), Plan, each Details subsection and Log.
+// body), Plan, PRs, each Details subsection and Log.
 type Frame struct {
 	Top     string
 	Body    string
@@ -141,6 +141,10 @@ func (r *Renderer) Render(s *Snapshot, width int, now time.Time) Frame {
 	if len(s.Board.Steps) > 0 {
 		heading("📋", "Plan")
 		body.cat(r.plan(s, width, now))
+	}
+	if len(s.Board.PRs) > 0 {
+		heading("🔀", "PRs")
+		body.cat(r.prs(s, width))
 	}
 	for i, sec := range s.Sections {
 		if i == 0 {
@@ -681,6 +685,56 @@ func fitStep(text, note string, room int) (string, string) {
 		return trunc(text, t), trunc(note, nk)
 	}
 	return trunc(text, room), ""
+}
+
+// PR glyphs: an open PR shows no state word; CI and review use the emoji
+// of the same meaning elsewhere (✅ pass, ❌ failed, ⏳ awaited).
+var (
+	prStateText  = map[string]string{"draft": "draft", "merged": "merged", "closed": "closed"}
+	prCIGlyph    = map[string]string{"pass": "✅", "fail": "❌", "pending": "⏳"}
+	prReviewIcon = map[string]string{"approved": "👍", "changes": "👎", "pending": "👀"}
+)
+
+// prs renders one row per PR: `repo#n title` (in color a hyperlink to its
+// url), then on the right, in aligned columns, the state word, the CI and
+// review glyphs and `↗` when it has a url. The title is cut to fit;
+// merged and closed PRs are dim.
+func (r *Renderer) prs(s *Snapshot, width int) block {
+	cols := make([][4]string, len(s.Board.PRs))
+	var cw [4]int
+	for i, p := range s.Board.PRs {
+		cols[i] = [4]string{prStateText[p.State], prCIGlyph[p.CI], prReviewIcon[p.Review]}
+		if p.URL != "" {
+			cols[i][3] = "↗"
+		}
+		for j, c := range cols[i] {
+			cw[j] = max(cw[j], ansi.StringWidth(c))
+		}
+	}
+	var b block
+	for i, p := range s.Board.PRs {
+		var parts []string
+		for j, c := range cols[i] {
+			if cw[j] > 0 {
+				parts = append(parts, pad(c, cw[j], false))
+			}
+		}
+		right := strings.Join(parts, " ")
+		rw := min(ansi.StringWidth(right), width/2)
+		right = trunc(right, rw)
+		left := trunc(fmt.Sprintf("%s#%d %s", p.Repo, p.N, p.Title), width-rw-2)
+		lw := ansi.StringWidth(left)
+		st := lipgloss.NewStyle()
+		if p.State == "merged" || p.State == "closed" {
+			st = r.st.dim
+		}
+		left = st.Render(left)
+		if p.URL != "" && r.Color {
+			left = ansi.SetHyperlink(hyperlinkURI(p.URL)) + left + ansi.ResetHyperlink()
+		}
+		b.add(strings.TrimRight(left+strings.Repeat(" ", max(0, width-lw-rw))+r.st.dim.Render(right), " "))
+	}
+	return b
 }
 
 var logMarker = map[string]string{"commit": "◆", "note": "•", "link": "↗"}

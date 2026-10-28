@@ -105,6 +105,43 @@ func TestArchiveCmd(t *testing.T) {
 	}
 }
 
+func TestPRCmd(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "board.json"), []byte(`{"title":"T","mine":true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"set", "kazemu/board#12", "--title", "feat: x", "--ci", "pending", "--dir", dir},
+		{"set", "kazemu/board#12", "--ci", "pass", "--review", "approved", "--dir", dir}, // upsert keeps the title
+		{"set", "o/r#3", "--state", "draft", "--dir", dir},
+		{"rm", "o/r#3", "--dir", dir},
+	} {
+		if err := cmdPR(args); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "board.json"))
+	got := string(b)
+	for _, want := range []string{`"mine": true`, `"repo": "kazemu/board"`, `"n": 12`, `"title": "feat: x"`, `"ci": "pass"`, `"review": "approved"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("board.json misses %s:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "o/r") {
+		t.Errorf("rm left o/r#3:\n%s", got)
+	}
+	for _, bad := range [][]string{
+		{"set", "norepo", "--dir", dir},
+		{"set", "o/r#3", "--ci", "green", "--dir", dir},
+		{"rm", "o/r#3", "--dir", dir}, // already gone
+		{"rm", "o/r#3", "--title", "x", "--dir", dir},
+	} {
+		if err := cmdPR(bad); err == nil {
+			t.Errorf("%v should fail", bad)
+		}
+	}
+}
+
 func TestStepCmd(t *testing.T) {
 	dir := t.TempDir()
 	for _, args := range [][]string{

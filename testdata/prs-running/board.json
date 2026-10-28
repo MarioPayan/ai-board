@@ -1,0 +1,14 @@
+{
+  "title": "Ship board sections",
+  "status": { "state": "working", "text": "Awaiting CI" },
+  "steps": [
+    { "text": "Write the code", "state": "done", "started": "2026-10-27T09:00:00-05:00", "ended": "2026-10-27T10:00:00-05:00" },
+    { "text": "Get the PRs green", "state": "external", "note": "CI", "started": "2026-10-27T10:00:00-05:00" }
+  ],
+  "pending": [],
+  "prs": [
+    { "repo": "kazemu/board", "n": 12, "title": "feat(tui): PRs and Running sections for the session board viewer", "url": "https://github.com/kazemu/board/pull/12", "state": "open", "ci": "pending", "review": "pending" },
+    { "repo": "kazemu/skills", "n": 340, "title": "docs: board writer guide", "url": "https://github.com/kazemu/skills/pull/340", "state": "draft", "ci": "fail", "review": "" },
+    { "repo": "kazemu/board", "n": 9, "title": "fix: footer width", "state": "merged", "ci": "pass", "review": "approved" }
+  ]
+}

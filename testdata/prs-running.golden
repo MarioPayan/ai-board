@@ -1,0 +1,14 @@
+🔵 Ship board sections                                        ⏱ 2h00m · ↻ 3m ago
+   Awaiting CI  █████░░░░░ 1/2                               📥0 ❌0 🤖0 ⏳1 ⚠️0
+⏳  Get the PRs green  CI                                                  1h00m
+
+
+────────────────────────────────────────────────────────────────────────────────
+📋 Plan ────────────────────────────────────────────────────────────────────────
+✅ Write the code                                                          1h00m
+⏳ Get the PRs green — CI
+
+🔀 PRs ─────────────────────────────────────────────────────────────────────────
+kazemu/board#12 feat(tui): PRs and Running sections for the ses…         ⏳ 👀 ↗
+kazemu/skills#340 docs: board writer guide                        draft  ❌    ↗
+kazemu/board#9 fix: footer width                                  merged ✅ 👍

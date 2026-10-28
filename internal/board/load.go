@@ -38,12 +38,33 @@ type Pending struct {
 	Link string `json:"link"`
 }
 
+// PR is one pull request the task tracks.
+type PR struct {
+	Repo   string `json:"repo"`
+	N      int    `json:"n"`
+	Title  string `json:"title"`
+	URL    string `json:"url"`
+	State  string `json:"state"`  // open, draft, merged, closed
+	CI     string `json:"ci"`     // pass, fail, pending or ""
+	Review string `json:"review"` // approved, changes, pending or ""
+}
+
+// Running is one local service the task started.
+type Running struct {
+	Name  string `json:"name"`
+	URL   string `json:"url"`
+	Cmd   string `json:"cmd"`
+	Login string `json:"login"` // a hint where the credentials live, never a secret
+}
+
 // BoardFile is board.json.
 type BoardFile struct {
 	Title   string    `json:"title"`
 	Status  Status    `json:"status"`
 	Steps   []Step    `json:"steps"`
 	Pending []Pending `json:"pending"`
+	PRs     []PR      `json:"prs"`
+	Running []Running `json:"running"`
 }
 
 // Agent is the resolved state of one subagent.
