@@ -24,7 +24,7 @@ board agent start <id> <name> [--expect MIN]
 board agent stop <id> [--failed]
 board step <index|text-prefix> <state> [--note T] [--link URL] [--dir D]   # move a step, stamping started/ended
 board step add <text> [--state S] [--dir D]    # append a step
-board check [--hours 4] [--dir D]              # one line per stuck step; always exits 0
+board check [--hours 4] [--dir D]              # one line per stuck step; exit 1 when any, 0 when clean
 board archive [--days 7] [--dry-run]           # move idle and old-format boards to ~/.claude/boards/.archive
 board pr set <repo#n> [--title T] [--url U] [--state open|draft|merged|closed] [--ci pass|fail|pending] [--review approved|changes|pending]
 board pr rm <repo#n>                           # PRs section: one row per PR, CI ✅❌⏳, review 👍👎👀

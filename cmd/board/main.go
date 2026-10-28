@@ -58,9 +58,14 @@ func main() {
 			exit(cmdArchive(os.Args[2:], os.Stdout))
 			return
 		case "check":
-			// a Stop hook calls it: report on stderr, always exit 0
-			if err := cmdCheck(os.Args[2:], os.Stdout); err != nil {
+			// a Stop hook calls it: exit 1 means stuck steps were printed;
+			// its own errors go to stderr with exit 0, never read as problems
+			n, err := cmdCheck(os.Args[2:], os.Stdout)
+			if err != nil {
 				fmt.Fprintln(os.Stderr, "board check:", err)
+			}
+			if n > 0 {
+				os.Exit(1)
 			}
 			return
 		}
@@ -395,33 +400,35 @@ func cmdArchive(args []string, stdout io.Writer) error {
 }
 
 // cmdCheck prints one line per stuck step (see board.StuckSteps). Without
-// --dir and $CLAUDE_CODE_SESSION_ID it prints nothing.
-func cmdCheck(args []string, stdout io.Writer) error {
+// --dir and $CLAUDE_CODE_SESSION_ID it prints nothing. It returns the
+// number of lines printed.
+func cmdCheck(args []string, stdout io.Writer) (int, error) {
 	args, dir, _, err := takeFlag(args, "dir", true)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	_, hours, found, err := takeFlag(args, "hours", true)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	h := 4.0
 	if found {
 		if h, err = strconv.ParseFloat(hours, 64); err != nil || h <= 0 {
-			return fmt.Errorf("--hours: want a positive number, got %q", hours)
+			return 0, fmt.Errorf("--hours: want a positive number, got %q", hours)
 		}
 	}
 	if dir == "" {
 		id := os.Getenv("CLAUDE_CODE_SESSION_ID")
 		if id == "" {
-			return nil
+			return 0, nil
 		}
 		if dir, err = board.SessionDir(id); err != nil {
-			return err
+			return 0, err
 		}
 	}
-	for _, l := range board.StuckSteps(board.Load(dir), time.Now(), time.Duration(h*float64(time.Hour))) {
+	lines := board.StuckSteps(board.Load(dir), time.Now(), time.Duration(h*float64(time.Hour)))
+	for _, l := range lines {
 		fmt.Fprintln(stdout, l)
 	}
-	return nil
+	return len(lines), nil
 }

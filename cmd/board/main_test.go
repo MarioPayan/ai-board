@@ -10,16 +10,27 @@ import (
 )
 
 func TestCheckCmd(t *testing.T) {
-	dir := t.TempDir()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := filepath.Join(home, ".claude", "boards", "s1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	started := time.Now().Add(-3 * time.Hour).Format(time.RFC3339)
 	board := `{"steps":[{"text":"build","state":"active","started":"` + started + `"},{"text":"x","state":"active"}]}`
 	if err := os.WriteFile(filepath.Join(dir, "board.json"), []byte(board), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// run returns the output; the count it returns (exit 1 when > 0) must
+	// match the lines printed
 	run := func(args ...string) string {
 		var out bytes.Buffer
-		if err := cmdCheck(args, &out); err != nil {
+		n, err := cmdCheck(args, &out)
+		if err != nil {
 			t.Fatal(err)
+		}
+		if lines := strings.Count(out.String(), "\n"); n != lines {
+			t.Errorf("%v: returned %d problems, printed %d lines", args, n, lines)
 		}
 		return out.String()
 	}
@@ -29,6 +40,10 @@ func TestCheckCmd(t *testing.T) {
 	if got := run("--dir", dir, "--hours", "2"); !strings.HasPrefix(got, "step 1 \"build\": active for 3h00m\n") {
 		t.Errorf("--hours 2: %q", got)
 	}
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "s1") // no --dir: the session's board
+	if got := run("--hours", "2"); strings.Count(got, "\n") != 2 {
+		t.Errorf("session board: %q", got)
+	}
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
 	if got := run(); got != "" {
 		t.Errorf("no session: %q", got)
@@ -36,8 +51,8 @@ func TestCheckCmd(t *testing.T) {
 	if got := run("--dir", filepath.Join(dir, "missing")); got != "" {
 		t.Errorf("missing board: %q", got)
 	}
-	if err := cmdCheck([]string{"--hours", "x"}, &bytes.Buffer{}); err == nil {
-		t.Error("--hours x should fail")
+	if n, err := cmdCheck([]string{"--hours", "x"}, &bytes.Buffer{}); err == nil || n != 0 {
+		t.Error("--hours x should fail with no problems counted")
 	}
 }
 
