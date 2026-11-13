@@ -1,4 +1,4 @@
-module github.com/kazemu/board
+module github.com/MarioPayan/board
 
 go 1.26.1
 
