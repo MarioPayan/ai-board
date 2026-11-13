@@ -4,7 +4,33 @@ A read-only terminal viewer for Claude Code session boards. Claude and hooks wri
 
 The file formats, layout, keys and CLI are defined in [SPEC.md](SPEC.md).
 
+## Screenshots
+
+The live viewer on four boards from `testdata/`, in a 100x34 terminal.
+
+![A board waiting on Mario: a pending approval, a failed agent and step, the plan, Markdown notes, a sparkline and a bar chart, and the log](docs/screenshots/agents-demo.svg)
+
+Waiting on you: the header slots show the pending approval and the failures, and Details renders notes, a sparkline and a bar chart.
+
+![A board mid-plan: five finished steps collapsed into one line, the active step highlighted, and a table with bars](docs/screenshots/done-heavy.svg)
+
+Mid-plan: finished steps collapse into one summary line, and the active step is highlighted with its elapsed time.
+
+![A board tracking three PRs with CI and review state, and two local services probed up or down](docs/screenshots/prs-running.svg)
+
+PRs with CI and review state, and the local services the task started, probed up or down.
+
+![A board whose checks section lists the two failing checks out of five](docs/screenshots/checks-fail.svg)
+
+A checks section: one red summary line, then only the failing checks.
+
 ## Install
+
+```sh
+go install github.com/MarioPayan/board/cmd/board@latest
+```
+
+From a clone:
 
 ```sh
 GOBIN=$HOME/.local/bin go install ./cmd/board
@@ -43,3 +69,7 @@ Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between se
 go test ./...                     # golden renders of testdata/* plus unit tests
 go test ./cmd/board -update       # regenerate testdata/*.golden
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
