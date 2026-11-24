@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarioPayan/board/internal/board"
+	"github.com/MarioPayan/ai-board/internal/board"
 )
 
 const usage = `usage:

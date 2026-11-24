@@ -1,4 +1,4 @@
-module github.com/MarioPayan/board
+module github.com/MarioPayan/ai-board
 
 go 1.26.1
 
