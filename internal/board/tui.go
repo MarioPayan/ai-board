@@ -305,11 +305,11 @@ func (m *model) footerGroups() []footGroup {
 		{"", []footKey{{"⇥", "sect", len(m.anchors) > 1 && scrolls}}},
 		{"view", []footKey{
 			{"d", "done", finishedSteps(m.snap) > collapseAbove},
-			{"a", "agents", agentsHidden(m.snap)},
-			{"c", "checks", hasPassingCheck(m.snap)},
+			{"a", "agt", agentsHidden(m.snap)},
+			{"c", "chk", hasPassingCheck(m.snap)},
 			{"l", "log", true},
 			{"D", "deck", len(validDecks(m.snap)) > 0},
-			{"g", "legend", true},
+			{"g", "leg", true},
 		}},
 		{"", []footKey{{"h", "help", true}, {"w", "narrow", true}, {"q", "", true}}},
 	}

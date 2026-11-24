@@ -77,7 +77,7 @@ func TestModelLegendToggle(t *testing.T) {
 	}
 }
 
-const fullFooter = "⇥ sect │ view d done a agents c checks l log D deck g legend │ h help w narrow q"
+const fullFooter = "⇥ sect │ view d done a agt c chk l log D deck g leg │ h help w narrow q"
 
 // footerKeys strips the scroll indicator off the right edge of the footer.
 func footerKeys(m *model) (keys, indicator string) {
@@ -137,10 +137,10 @@ func TestFooterIdleKeysDarker(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 12})
 	f := m.footer()
 	off := m.r.st.off
-	if !strings.Contains(f, off.Render("d done")) || !strings.Contains(f, off.Render("c checks")) {
+	if !strings.Contains(f, off.Render("d done")) || !strings.Contains(f, off.Render("c chk")) {
 		t.Errorf("idle d and c should be darker: %q", f)
 	}
-	if strings.Contains(f, off.Render("a agents")) || !strings.Contains(f, "a agents") {
+	if strings.Contains(f, off.Render("a agt")) || !strings.Contains(f, "a agt") {
 		t.Errorf("active a should not be darker: %q", f)
 	}
 }
