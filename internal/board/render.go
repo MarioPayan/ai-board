@@ -267,7 +267,7 @@ func (r *Renderer) counts(s *Snapshot, base lipgloss.Style) string {
 			external++
 		}
 	}
-	errs := len(s.AgentErrs) + len(s.LogErrs)
+	errs := len(s.AgentErrs) + len(s.LogErrs) + deckErrs(s)
 	if s.BoardErr != nil {
 		errs++
 	}
@@ -280,7 +280,7 @@ func (r *Renderer) counts(s *Snapshot, base lipgloss.Style) string {
 	for _, c := range []struct {
 		icon string
 		n    int
-	}{{"📥", len(s.Board.Pending)}, {"❌", failed}, {"🤖", running}, {"⏳", external}, {"⚠️", errs}} {
+	}{{"📥", len(s.Board.Pending) + unsentDecks(s)}, {"❌", failed}, {"🤖", running}, {"⏳", external}, {"⚠️", errs}} {
 		st := base
 		if c.n == 0 {
 			st = r.st.off.Inherit(base)
@@ -352,6 +352,7 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 		}
 		items = append(items, it)
 	}
+	items = append(items, r.deckSlots(s)...)
 	agents := sortAgents(s.Agents, now) // failed first
 	nRunning := 0
 	for _, a := range agents {
@@ -370,7 +371,13 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 	if s.BoardErr != nil {
 		errs = append(errs, s.BoardErr.Error())
 	}
-	for _, e := range append(errs, s.AgentErrs...) {
+	errs = append(errs, s.AgentErrs...)
+	for _, d := range s.Decks {
+		if d.Err != nil {
+			errs = append(errs, d.Err.Error())
+		}
+	}
+	for _, e := range errs {
 		items = append(items, slot{icon: "⚠️", item: e, iconSt: r.st.err, itemSt: r.st.err})
 	}
 	for _, st := range s.Board.Steps {
@@ -437,6 +444,54 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 		out = append(out, "")
 	}
 	return out
+}
+
+// deckSlots are the header rows for decks: `📥 Deck: <title> · <answered>/<total>`
+// while a deck's round has no answers file, then `💬 Deck: <title>` with
+// the session's ack (`Claude: <ack>`) once it wrote one.
+func (r *Renderer) deckSlots(s *Snapshot) []slot {
+	var out []slot
+	for _, d := range deckRows(s) {
+		if !d.Sent {
+			done, total := d.Deck.Answered(d.State)
+			out = append(out, slot{icon: "📥", item: fmt.Sprintf("Deck: %s · %d/%d", d.Title(), done, total), itemSt: r.st.bold})
+		} else {
+			out = append(out, slot{icon: "💬", item: "Deck: " + d.Title(), detail: "Claude: " + d.Ack, detailSt: r.st.noteExternal})
+		}
+	}
+	return out
+}
+
+// deckRows are the decks that take a header row: unsent, or sent with an ack.
+func deckRows(s *Snapshot) []DeckFile {
+	var out []DeckFile
+	for _, d := range s.Decks {
+		if d.Err == nil && (!d.Sent || d.Ack != "") {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// unsentDecks counts the decks whose round has no answers file: items on you.
+func unsentDecks(s *Snapshot) int {
+	n := 0
+	for _, d := range s.Decks {
+		if d.Err == nil && !d.Sent {
+			n++
+		}
+	}
+	return n
+}
+
+func deckErrs(s *Snapshot) int {
+	n := 0
+	for _, d := range s.Decks {
+		if d.Err != nil {
+			n++
+		}
+	}
+	return n
 }
 
 // hyperlinkURI makes a pending link openable from a terminal hyperlink: an
@@ -517,11 +572,11 @@ func agentsHidden(s *Snapshot) bool {
 			rest++
 		}
 	}
-	rest += len(s.AgentErrs)
+	rest += len(s.AgentErrs) + deckErrs(s)
 	if s.BoardErr != nil {
 		rest++
 	}
-	pending := len(s.Board.Pending)
+	pending := len(s.Board.Pending) + len(deckRows(s))
 	if running > 0 {
 		return pending+failed+rest+running > agentsShown
 	}

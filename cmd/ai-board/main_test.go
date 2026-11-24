@@ -205,3 +205,53 @@ func TestStepCmd(t *testing.T) {
 		t.Error("missing state should fail")
 	}
 }
+
+// answers wait blocks until the deck's answers file for its round exists,
+// then prints it.
+func TestAnswersWait(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "decisions"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "decisions", "d.json"), []byte(`{"id":"d","title":"D","round":3,"items":[]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	done := make(chan error, 1)
+	go func() { done <- cmdAnswers([]string{"wait", "d", "--dir", dir}, &out, 5*time.Millisecond) }()
+	select {
+	case err := <-done:
+		t.Fatalf("returned before the answers existed: %v %q", err, out.String())
+	case <-time.After(50 * time.Millisecond):
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "answers"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// round 1 is not the deck's round: still waiting
+	if err := os.WriteFile(filepath.Join(dir, "answers", "d-r1.txt"), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-done:
+		t.Fatalf("took round 1 for a round-3 deck: %q", out.String())
+	case <-time.After(50 * time.Millisecond):
+	}
+	if err := os.WriteFile(filepath.Join(dir, "answers", "d-r3.txt"), []byte("DECISIONS · d · round 3"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil || out.String() != "DECISIONS · d · round 3\n" {
+			t.Errorf("got %v %q", err, out.String())
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("still waiting after the answers were written")
+	}
+	out.Reset()
+	if err := cmdAnswers([]string{"wait", "d", "--round", "1", "--dir", dir}, &out, time.Millisecond); err != nil || out.String() != "old\n" {
+		t.Errorf("--round 1: %v %q", err, out.String())
+	}
+	if err := cmdAnswers([]string{"wait", "../x", "--dir", dir}, &out, time.Millisecond); err == nil {
+		t.Error("a deck id with a slash should be refused")
+	}
+}

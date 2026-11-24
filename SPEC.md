@@ -1,6 +1,6 @@
 # AI Board — spec
 
-A read-only terminal viewer for Claude Code session boards. Claude and hooks write small files into one directory per session; `ai-board` watches that directory and renders it. This file is the contract between the writers and the viewer.
+A terminal viewer for Claude Code session boards, with a decision panel. Claude and hooks write small files into one directory per session; `ai-board` watches that directory and renders it. The viewer only reads, except in the decision panel, where Mario answers a deck and the viewer writes the draft and the answers under `answers/` (see Decision decks). This file is the contract between the writers and the viewer.
 
 ## Directory
 
@@ -15,9 +15,15 @@ A read-only terminal viewer for Claude Code session boards. Claude and hooks wri
     20-space.chart.json     chart
     30-candidates.table.json table
     40-verification.checks.json verification results
+  decisions/
+    <id>.json           Claude: a decision deck (the web deck's JSON)
+  answers/
+    <id>-r<round>.txt         the viewer: the answers Mario sent for that round
+    <id>-r<round>.draft.json  the viewer: the answers being drafted, saved on every change
+    <id>-r<round>.ack         Claude: a one-line reply to the answers
 ```
 
-Each file has one kind of writer. JSONL files are only appended to, never rewritten, so hooks and Claude never race on the same bytes. `board.json` and section files are replaced whole (write to a temp file, rename).
+Each file has one kind of writer (under `answers/`, the `.ack` is Claude's and the rest the viewer's). JSONL files are only appended to, never rewritten, so hooks and Claude never race on the same bytes. `board.json` and section files are replaced whole (write to a temp file, rename).
 
 Every file is optional. A missing directory renders a "⏳ waiting for <path>" screen; a missing file renders as empty; a file that fails to parse renders its error in place of its content, and the rest of the board still renders.
 
@@ -103,6 +109,15 @@ A cell is a string, a number, or `{ "v": number, "text": string }`. A `bar: true
 
 Verification results. `detail` is optional. When every check passes the section is one green line, `✅ <N>/<N> checks`. When any fails it is a red `❌ <F>/<N> checks failed` followed by only the failing checks, one per line, indented: `❌ <name> — <detail>` (the detail dim, truncated to the width). `c` toggles listing every check, passing ones (`✅`) included, in the live viewer; `--once` lists only the failing ones unless `--checks` is given. An empty list renders a dim `no checks`.
 
+## Decision decks
+
+A deck is `decisions/<id>.json` in the schema of the web decision deck (`~/.claude/skills/lib/artifacts/decision-deck.md`, Schema), read unchanged, so one JSON file serves both: `id`, `title`, `project`, `round` (1 when missing), `intro`, and `items[]` with `n`, `title`, `summary`, `details`, `kind` (`choice`, the default, or `confirm`), `options[]` (`key`, `title`, `summary`, `pros`, `cons`, `effort`, `risk`), `recommended`, `why` and `decided`. The panel also reads an optional `url` on the deck and on an item, opened with `o`. `details` is HTML shown as plain text (block ends become line breaks, list items `• `, entities decoded); the mockups (`before`, `mock`) are never rendered. A confirm item has the options `A` Approve, `B` Reject and `C` Defer, as in the web deck. Items with `decided` are listed under "Decided in earlier rounds" and are not asked again. A deck whose `id` is not letters, digits, `.`, `_` and `-` is a parse error. Claude removes the deck file once the deck is closed; a new round is the same file with `round` + 1.
+
+- **Draft**: `answers/<id>-r<round>.draft.json`, `{"choices": {"<n>": "<KEY>"}, "notes": {"<n>": "…"}, "general": "…"}` (the web deck's state, without its other fields). The viewer replaces it atomically on every pick, clear and note, and loads it when the deck opens, so a draft survives quitting. A missing or broken draft is an empty one. Drafts are per round, so a new round starts clean.
+- **Answers**: Send writes `answers/<id>-r<round>.txt` atomically (temp file, rename): the text the web deck's `serialize()` produces for the same picks and notes, byte for byte, with no trailing newline (the grammar is decision-deck.md, Read the answers, step 2; per-option notes, Other and generated options are not offered here). When the round was already sent with other answers, line 2 is `Re-sent: replaces the answers sent <ISO>`, where `<ISO>` is the earlier file's mtime in UTC as JavaScript's `toISOString()` writes it (`2026-11-24T15:00:00.000Z`); sending the same answers again leaves the file untouched. Only the latest answers are kept. The same text goes to the clipboard: OSC 52 to the terminal, and `wl-copy` when it is on PATH.
+- **Ack**: Claude may write `answers/<id>-r<round>.ack`, one line (later lines are ignored), after reading the answers: what happens next (`action plan coming`). The deck view and the header slot show it as `Claude: <ack>`.
+- Sessions learn of a Send by running `ai-board answers wait <id>` in the background (see CLI).
+
 ## Layout
 
 Labels are English; icons replace words where the meaning stays obvious. Colours are ANSI 16-colour indices, so the terminal theme picks the shades. "Darker" below means dimmer than the dim grey (grey and faint): a zero count, an empty slot, a key that would do nothing.
@@ -110,11 +125,12 @@ Labels are English; icons replace words where the meaning stays obvious. Colours
 Fixed area: always exactly six lines while a board is loaded, so its shape never changes, top to bottom:
 
 1. **Title line**: `<status emoji> <title>` on the left (the title bold; `⚪` when there is no status); on the right, dimmed, `⏱ <total elapsed> · ↻ <updated ago>`. Total elapsed runs from the first step's `started` (to the last `ended` once the status is `done`); `updated` is the newest mtime in the directory. When the status is `working` and that mtime is more than 10 minutes old, the `↻` part becomes a red `⚠️ stale <ago>`. A part with no data is omitted.
-2. **Status line**, indented three spaces: the status text in bold, a 10-cell progress bar and `done/total` (done and skipped count as done). Pinned to the right edge, the counts `📥<N> ❌<N> 🤖<N> ⏳<N> ⚠️<N>`: items on you (pending), failures (failed or blocked agents plus failed steps), running agents, external waits (`external` steps), and errors (a board.json error plus every section, agents.jsonl and log.jsonl parse error). A zero count is drawn darker, never left out. When the status is `done`, the line is a green band with the bar full, the counts inside it.
+2. **Status line**, indented three spaces: the status text in bold, a 10-cell progress bar and `done/total` (done and skipped count as done). Pinned to the right edge, the counts `📥<N> ❌<N> 🤖<N> ⏳<N> ⚠️<N>`: items on you (pending, plus every deck whose round has no answers file), failures (failed or blocked agents plus failed steps), running agents, external waits (`external` steps), and errors (a board.json error plus every section, deck, agents.jsonl and log.jsonl parse error). A zero count is drawn darker, never left out. When the status is `done`, the line is a green band with the bar full, the counts inside it.
 3. **Slots, three lines**: a table of aligned columns with no borders and no header row, `icon | item | detail | right`, filled in priority order:
    - pending items: `📥` and the item in bold across the row; with a link, a dim `↗` on the right and, in color, the item text is a terminal hyperlink (OSC 8) to it (an absolute path as `file://`). The link itself is not printed: cut to the row it reads as nothing;
+   - decks: every deck whose round has no answers file (`📥`, `Deck: <title> · <answered>/<total>` in bold, counting the open items with a pick in the draft), then every sent deck with an ack (`💬`, `Deck: <title>`, and `Claude: <ack>` in magenta as the detail);
    - failures: failed agents (`❌`, the name, a red `failed` and the time it stopped on the right), then failed steps (`❌`, the text, its note as the detail);
-   - errors: a board.json or agents.jsonl parse error (`⚠️`, in red);
+   - errors: a board.json, agents.jsonl or deck parse error (`⚠️`, in red);
    - external waits: every `external` step (`⏳`, the text, its note in magenta as the detail, i.e. who or what is awaited); on the right, dim, the time since its `started` and, with a `link`, a `↗`, the text then being a hyperlink to it like a pending item;
    - running agents (`🤖`), sorted over their expected time first, then by elapsed time, longest first; on the right the elapsed time or, with `expect_min`, a bar of elapsed against expected (full and marked `over` when exceeded).
 
@@ -136,13 +152,25 @@ Scrolling body, top to bottom; each heading is a bold title followed by a dim ru
 Live viewer only, below the body:
 
 - **Legend** (hidden by default; `g` shows or hides it): one fixed dim line naming the plan markers, `▶️ active · 📥 on you · ⏳ external · ❌ failed · ⚪ todo · ✅ done`, just above the footer; the body gives up a line for it. Entries that do not fit the width are dropped from the end and replaced by `…`. `--once --legend` appends the same line after a blank line.
-- **Footer**: always exactly one line, every key in a fixed place in three groups: `⇥ sect │ view d done a agents c checks l log g legend │ h help w narrow q` (73 cells, so it fits 80 columns with the indicator). The group name and `│` are dim. A key that would do nothing right now is drawn darker, not left out: `⇥` with fewer than two jump targets or when the whole body fits, `d` with three finished steps or fewer, `a` when every agent is in the header slots, `c` when no checks section has a passing check to reveal. Pinned to the right edge, dim: `↓ <N>` (lines below the viewport), `end` at the bottom, nothing when the whole body fits. `w` toggles a narrow form with keys only, in the same places: `⇥ │ d a c l g │ h w q` and the indicator. There is no automatic switch by width; a pane narrower than the line truncates it.
+- **Footer**: always exactly one line, every key in a fixed place in three groups: `⇥ sect │ view d done a agt c chk l log D deck g leg │ h help w narrow q` (71 cells, so it fits 80 columns with the indicator). The group name and `│` are dim. A key that would do nothing right now is drawn darker, not left out: `⇥` with fewer than two jump targets or when the whole body fits, `d` with three finished steps or fewer, `a` when every agent is in the header slots, `c` when no checks section has a passing check to reveal, `D` when there is no deck. Pinned to the right edge, dim: `↓ <N>` (lines below the viewport), `end` at the bottom, nothing when the whole body fits. `w` toggles a narrow form with keys only, in the same places: `⇥ │ d a c l D g │ h w q` and the indicator. There is no automatic switch by width; a pane narrower than the line truncates it.
 
-`h` replaces the body with a full-screen help (the fixed area, legend and footer stay): every step marker, status emoji, header, slot and count icon, checks, PR, running and log markers, what each colour means, and every key. `h` again, or `l`, leaves it.
+`h` replaces the body with a full-screen help (the fixed area, legend and footer stay): every step marker, status emoji, header, slot and count icon, checks, PR, running, deck and log markers, what each colour means, and every key, deck keys included. `h` again, or `l`, leaves it.
 
-The six header lines stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory and `sections/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
+**Deck view** (`D`): like `l` and `h` it replaces the body, and the fixed area stays. With one deck `D` opens it; with several it first lists them (`▸` on the selected one, then on the right its `answered/total`, `sent`, or `💬 <ack>`; `j`/`k` move, `enter` or a click opens, `esc` or `D` goes back), starting on the first deck not yet sent. The deck view body, top to bottom:
 
-Keys (single keys, no Shift except `shift+tab`): `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` (active only when the body scrolls) jump between Agents (when in the body), Plan, PRs, Running, each Details subsection and Log, `l` toggles a full-screen log, `h` toggles the full-screen help, `d` expands or collapses finished steps, `a` lists every agent in the body, `c` lists every check or only the failing ones, `g` shows or hides the legend line, `w` toggles the narrow footer, `q` quits.
+- `🧭 <title>` heading, then a dim line `<project> · round <n> · <answered>/<total> answered[ · sent][ · ↗ link (o)]`, the intro (dim, wrapped), the ack (`💬 Claude: <ack>`, magenta) and, when some items are decided, `Decided in earlier rounds` with one `✓ <decided>` line each.
+- Every open item, after a blank line: `▸ <n>. <title>` (`▸` and the title in the accent colour on the focused item, two spaces and bold otherwise), on the right `✓ <n><KEY>` in green or a dim `open`; the summary; `details` as dim plain text; `↗ <url>` dim when the item has one. Then one line per option, `○ <KEY>  <title>` (`●` and the key and title in bold green when picked), on a confirm item the dim alias key (`y`, `r`, `f`), `★ recommended` in yellow on the recommended one, and on the right, dim, `effort <S|M|L> · risk <low|med|high>` (the risk word green, yellow or red in colour). Under an option, indented: its summary (dim), `+ <pros joined by ·>` in green, `− <cons>` in red and, under the recommended option, `why: <why>` dim. Last, the note: `✎ <note>` (every line of it) or a dim `✎ add a note (click, or n)`.
+- `General notes` and its note line, focused like an item.
+
+Text wraps at the width. The footer is two lines: a status line (what the last key did, the send prompt, or a dim hint) and the Send button (` Send ` reversed in colour, `[Send]` without) followed by the dim keys `j/k item  a-d pick  x clear  n note  N general  R rec  u open  o url  esc back`. While a note is open the footer is six lines: a rule, `Note on <n>. <title>` (or `General notes`) in bold, a three-line text box, and `enter save · alt+enter newline · esc cancel`.
+
+Deck keys: `j`/`k`/`↑`/`↓`/`tab`/`shift+tab` move the focus between items and the general note; `pgup`/`pgdn` and the wheel scroll. `a`–`d` or `1`–`9` pick that option of the focused item; the picked key again clears it, and `x` clears it too. On a confirm item `y` approves, `r` rejects and `f` defers. `R` fills every open item that has no pick with its `recommended` option, never replacing a pick. `u` jumps to the next item without a pick. `n` edits the focused item's note, `N` the general note: `enter` saves (trimmed), `alt+enter` is a newline, `esc` cancels. `o` opens the focused item's `url`, else the deck's, with `xdg-open` (`open` on macOS). `s` sends; with items still open the footer first asks `<N> open: send anyway? y/n`, and only `y` sends. After a send the status reads `✓ sent <answered>/<total> · copied`. `esc` or `D` goes back to the board; `q` quits (the draft is already saved).
+
+Mouse reporting (cell motion) is on only while the picker or the deck view is open, and off again on the way back, so text selection works on the board. In the deck view a click on an option picks it (again clears it), on an item's other lines focuses it, on a `↗` line opens the url, on a note line opens the note, and on the Send button sends (asking first like `s`).
+
+The six header lines stay fixed; everything below scrolls. Times refresh every second; file changes re-render once events have been quiet for ~150 ms (fsnotify on the directory, `sections/`, `decisions/` and `answers/`), because writers may write in place rather than rename; a parse error from a half-written file stays inline until the next change.
+
+Keys (single keys, no Shift except `shift+tab`): `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` (active only when the body scrolls) jump between Agents (when in the body), Plan, PRs, Running, each Details subsection and Log, `l` toggles a full-screen log, `h` toggles the full-screen help, `d` expands or collapses finished steps, `a` lists every agent in the body, `c` lists every check or only the failing ones, `g` shows or hides the legend line, `w` toggles the narrow footer, `D` opens the deck view (keys above), `q` quits.
 
 The viewer sets the terminal title to `board: <session-id>` (kept from before the `ai-board` rename, so the opener finds a pane of either binary); the opener script finds an existing pane by that title.
 
@@ -150,7 +178,7 @@ The viewer sets the terminal title to `board: <session-id>` (kept from before th
 
 ```
 ai-board [<session-id>]          watch and render (default: newest board directory by mtime)
-ai-board --once [--width N] [--expand] [--checks] [--agents] [--legend] [<id>]
+ai-board --once [--width N] [--expand] [--checks] [--agents] [--legend] [--deck ID] [<id>]
                                  render a single frame to stdout without color and exit
 ai-board log [--kind K] <text>   append to log.jsonl of $CLAUDE_CODE_SESSION_ID
 ai-board agent start <id> <name> [--expect MIN]
@@ -163,8 +191,12 @@ ai-board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R]
 ai-board pr rm <repo#n> [--dir D]
 ai-board run set <name> [--url U] [--cmd C] [--login HINT] [--dir D]
 ai-board run rm <name> [--dir D]
+ai-board answers wait <deck-id> [--round N] [--dir D]
+                                 block until the deck's answers exist, then print them
 ai-board hook                    read a Claude Code hook payload on stdin and append events
 ```
+
+`ai-board answers wait` polls (every second) for `answers/<deck-id>-r<round>.txt` and prints it, with one trailing newline, as soon as it exists, at once when it already does; the round is `--round`, or the round of the deck with that id in `decisions/` (read again on every poll), or 1. `--dir` is the board directory, default `$CLAUDE_CODE_SESSION_ID`'s. A session runs it in the background after writing a deck, so a Send wakes it. A deck id with a path separator is refused.
 
 `ai-board step` edits `board.json` in place of a whole-file write: it reads the file, changes one step and replaces it atomically (temp file, rename). Every field it does not change, including ones this spec does not name, is kept; keys are written in sorted order. A board.json that does not parse is left untouched and the command fails. The step is a 1-based index or a case-insensitive prefix of exactly one step's text. `<state>` is one of the `steps[].state` values. Moving into `active`, `waiting` or `external` sets `started` (RFC 3339, local offset) when it is unset; moving into `done`, `failed` or `skipped` sets `ended` (kept when the step was already in that state); moving into any unfinished state removes `ended`. `--note` / `--link` set those fields, and an empty value removes them. `ai-board step add` appends a step (`todo` unless `--state`), stamped the same way. `--dir` names the board directory; the default is `$CLAUDE_CODE_SESSION_ID`'s, created when missing.
 
@@ -182,4 +214,4 @@ ai-board hook                    read a Claude Code hook payload on stdin and ap
 
 It uses the payload's `session_id` to pick the directory. It never fails the hook: on any error it exits 0 and writes nothing. Unknown events are ignored.
 
-`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests; `--expand` lists every finished step instead of the collapsed summary; `--checks` lists passing checks too; `--agents` lists every agent in the body; `--legend` ends the frame with the fixed legend line.
+`--once` exists for tests and for Claude to check a render; `--now <RFC3339>` fixes the clock for golden tests; `--expand` lists every finished step instead of the collapsed summary; `--checks` lists passing checks too; `--agents` lists every agent in the body; `--legend` ends the frame with the fixed legend line; `--deck <id>` renders the deck view of that deck (by `id`, or file name without `.json`) with its draft and the focus on the first item, under the fixed area and without the footer, and fails when there is no such deck.

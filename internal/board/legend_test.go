@@ -77,7 +77,7 @@ func TestModelLegendToggle(t *testing.T) {
 	}
 }
 
-const fullFooter = "⇥ sect │ view d done a agents c checks l log g legend │ h help w narrow q"
+const fullFooter = "⇥ sect │ view d done a agt c chk l log D deck g leg │ h help w narrow q"
 
 // footerKeys strips the scroll indicator off the right edge of the footer.
 func footerKeys(m *model) (keys, indicator string) {
@@ -137,10 +137,10 @@ func TestFooterIdleKeysDarker(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 12})
 	f := m.footer()
 	off := m.r.st.off
-	if !strings.Contains(f, off.Render("d done")) || !strings.Contains(f, off.Render("c checks")) {
+	if !strings.Contains(f, off.Render("d done")) || !strings.Contains(f, off.Render("c chk")) {
 		t.Errorf("idle d and c should be darker: %q", f)
 	}
-	if strings.Contains(f, off.Render("a agents")) || !strings.Contains(f, "a agents") {
+	if strings.Contains(f, off.Render("a agt")) || !strings.Contains(f, "a agt") {
 		t.Errorf("active a should not be darker: %q", f)
 	}
 }
@@ -169,7 +169,7 @@ func TestModelNarrowFooter(t *testing.T) {
 	press(m, "w")
 	lines := viewLines(m)
 	f := lines[len(lines)-1]
-	if !strings.HasPrefix(f, "⇥ │ d a c l g │ h w q ") || !strings.Contains(f, "↓ ") || ansi.StringWidth(f) != 120 {
+	if !strings.HasPrefix(f, "⇥ │ d a c l D g │ h w q ") || !strings.Contains(f, "↓ ") || ansi.StringWidth(f) != 120 {
 		t.Errorf("narrow footer = %q", f)
 	}
 	press(m, "w")
@@ -186,7 +186,7 @@ func TestModelNarrowFooter(t *testing.T) {
 
 // h opens a full-screen help naming every marker and key; h again closes it.
 func TestModelHelp(t *testing.T) {
-	m := newModel(t, "agents-many", 80, 80)
+	m := newModel(t, "agents-many", 80, 140) // tall enough for the whole help
 	press(m, "h")
 	view := ansi.Strip(m.View())
 	if strings.Contains(view, "📋 Plan") || !strings.Contains(view, "❔ Help") {
@@ -197,7 +197,7 @@ func TestModelHelp(t *testing.T) {
 			t.Errorf("help misses %s", sym)
 		}
 	}
-	for _, k := range []string{"d ", "a ", "c ", "l ", "g ", "h ", "w ", "q ", "⇥ ", "j k"} {
+	for _, k := range []string{"d ", "a ", "c ", "l ", "g ", "h ", "w ", "q ", "⇥ ", "j k", "D ", "R ", "u ", "s "} {
 		if !strings.Contains(view, "\n"+k) {
 			t.Errorf("help misses key %q", k)
 		}

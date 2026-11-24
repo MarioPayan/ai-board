@@ -1,0 +1,50 @@
+🟡 Decision panel                                             ⏱ 1h00m · ↻ 3m ago
+   Waiting on the deck  █████░░░░░ 1/2                       📥1 ❌0 🤖0 ⏳0 ⚠️0
+📥  Deck: Panel build choices · 2/3
+💬  Deck: Footer wording             Claude: action plan coming
+
+────────────────────────────────────────────────────────────────────────────────
+🧭 Panel build choices ─────────────────────────────────────────────────────────
+ai-board · round 1 · 2/3 answered · ↗ link (o)
+Three choices left before the panel ships.
+
+Decided in earlier rounds
+✓ 4A — Deck key: D opens the deck view (recommended)
+
+▸ 1. Where deck files live                                                  ✓ 1A
+   The panel needs to find the session's decks.
+   The board directory is already watched.
+   • One watcher
+   • Dies with the session & its board
+   ↗ https://example.com/item-1
+   ● A  decisions/ in the board dir  ★ recommended           effort S · risk low
+        Next to sections/.
+        + Same watcher
+        − Not on the web
+        why: It needs no new field and dies with the board.
+   ○ B  Anywhere, path in board.json                        effort M · risk high
+        + Shared decks
+        − Stale paths
+   ✎ keep it
+     simple
+
+  2. Ship the R key                                                         ✓ 2B
+   R fills every open item with its recommendation.
+   ○ A  Approve  y
+   ● B  Reject  r
+   ○ C  Defer  f
+   ✎ add a note (click, or n)
+
+  3. Note editor                                                            open
+   Each item takes a free-text note.
+   ○ A  Inline text box  ★ recommended
+        + No context switch
+        − Clumsy for long notes
+        why: Notes are short.
+   ○ B  $EDITOR on a temp file
+        + Full editor
+        − Leaves the TUI
+   ✎ add a note (click, or n)
+
+  General notes
+   ✎ add a note (click, or n)

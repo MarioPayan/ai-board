@@ -17,7 +17,7 @@ import (
 
 const usage = `usage:
   ai-board [<session-id|dir>]                    watch and render
-  ai-board --once [--width N] [--now RFC3339] [--expand] [--checks] [--agents] [--legend] [<id>]
+  ai-board --once [--width N] [--now RFC3339] [--expand] [--checks] [--agents] [--legend] [--deck ID] [<id>]
                                                  render one frame without color
   ai-board log [--kind K] <text>
   ai-board agent start <id> <name> [--expect MIN]
@@ -30,6 +30,8 @@ const usage = `usage:
   ai-board pr rm <repo#n> [--dir D]
   ai-board run set <name> [--url U] [--cmd C] [--login HINT] [--dir D]
   ai-board run rm <name> [--dir D]
+  ai-board answers wait <deck-id> [--round N] [--dir D]
+                                                 block until the deck's answers exist, print them
   ai-board hook                                 read a hook payload on stdin
 `
 
@@ -53,6 +55,9 @@ func main() {
 			return
 		case "run":
 			exit(cmdRun(os.Args[2:]))
+			return
+		case "answers":
+			exit(cmdAnswers(os.Args[2:], os.Stdout, time.Second))
 			return
 		case "archive":
 			exit(cmdArchive(os.Args[2:], os.Stdout))
@@ -90,6 +95,7 @@ func cmdView(args []string, stdout io.Writer) error {
 	checks := fs.Bool("checks", false, "with --once, list passing checks too")
 	agents := fs.Bool("agents", false, "with --once, list every agent")
 	legend := fs.Bool("legend", false, "with --once, end with the legend line")
+	deck := fs.String("deck", "", "with --once, render the deck view of this deck id")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -112,7 +118,16 @@ func cmdView(args []string, stdout io.Writer) error {
 	if *once {
 		snap := board.Load(dir)
 		up := board.ProbeAll(snap.Board.Running) // once, 2 s at most
-		fmt.Fprint(stdout, board.Once(snap, *width, now, board.Options{Expand: *expand, AllChecks: *checks, AllAgents: *agents, Legend: *legend, Up: up}))
+		o := board.Options{Expand: *expand, AllChecks: *checks, AllAgents: *agents, Legend: *legend, Up: up}
+		if *deck != "" {
+			out, err := board.OnceDeck(snap, *deck, *width, now, o)
+			if err != nil {
+				return err
+			}
+			fmt.Fprint(stdout, out)
+			return nil
+		}
+		fmt.Fprint(stdout, board.Once(snap, *width, now, o))
 		return nil
 	}
 	return board.Run(dir, name)
@@ -431,4 +446,43 @@ func cmdCheck(args []string, stdout io.Writer) (int, error) {
 		fmt.Fprintln(stdout, l)
 	}
 	return len(lines), nil
+}
+
+// cmdAnswers is `answers wait`: it polls every `every` until
+// answers/<id>-r<round>.txt exists in the board directory and prints it.
+// Without --round the round is the deck file's (decisions/<id>.json), or 1.
+func cmdAnswers(args []string, stdout io.Writer, every time.Duration) error {
+	const use = "usage: ai-board answers wait <deck-id> [--round N] [--dir D]"
+	args, fields, err := takeFields(args, "dir", "round")
+	if err != nil {
+		return err
+	}
+	if len(args) != 2 || args[0] != "wait" {
+		return errors.New(use)
+	}
+	id := args[1]
+	if strings.ContainsAny(id, `/\`) || id == "" || id == "." || id == ".." {
+		return fmt.Errorf("invalid deck id %q", id)
+	}
+	dir, err := boardDir(fields["dir"])
+	if err != nil {
+		return err
+	}
+	round := 0
+	if r, ok := fields["round"]; ok {
+		if round, err = strconv.Atoi(r); err != nil || round < 1 {
+			return fmt.Errorf("--round: want a positive number, got %q", r)
+		}
+	}
+	for {
+		r := round
+		if r == 0 {
+			r = board.DeckRound(dir, id)
+		}
+		if b, err := os.ReadFile(board.AnswerBase(dir, id, r) + ".txt"); err == nil {
+			fmt.Fprintln(stdout, strings.TrimRight(string(b), "\n"))
+			return nil
+		}
+		time.Sleep(every)
+	}
 }

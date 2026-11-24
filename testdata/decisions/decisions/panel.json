@@ -1,0 +1,46 @@
+{
+  "id": "panel",
+  "title": "Panel build choices",
+  "project": "ai-board",
+  "round": 1,
+  "intro": "Three choices left before the panel ships.",
+  "url": "https://claude.ai/artifact/example",
+  "items": [
+    {
+      "n": 1,
+      "title": "Where deck files live",
+      "summary": "The panel needs to find the session's decks.",
+      "details": "<p>The board directory is already watched.</p><ul><li>One watcher</li><li>Dies with the session &amp; its board</li></ul>",
+      "before": "<div style=\"color:red\">never rendered</div>",
+      "url": "https://example.com/item-1",
+      "options": [
+        { "key": "A", "title": "decisions/ in the board dir", "summary": "Next to sections/.", "pros": ["Same watcher"], "cons": ["Not on the web"], "effort": "S", "risk": "low", "mock": "<b>never rendered</b>" },
+        { "key": "B", "title": "Anywhere, path in board.json", "pros": ["Shared decks"], "cons": ["Stale paths"], "effort": "M", "risk": "high" }
+      ],
+      "recommended": "A",
+      "why": "It needs no new field and dies with the board."
+    },
+    {
+      "n": 2,
+      "kind": "confirm",
+      "title": "Ship the R key",
+      "summary": "R fills every open item with its recommendation."
+    },
+    {
+      "n": 3,
+      "title": "Note editor",
+      "summary": "Each item takes a free-text note.",
+      "options": [
+        { "key": "A", "title": "Inline text box", "pros": ["No context switch"], "cons": ["Clumsy for long notes"] },
+        { "key": "B", "title": "$EDITOR on a temp file", "pros": ["Full editor"], "cons": ["Leaves the TUI"] }
+      ],
+      "recommended": "A",
+      "why": "Notes are short."
+    },
+    {
+      "n": 4,
+      "title": "Deck key",
+      "decided": "4A — Deck key: D opens the deck view (recommended)"
+    }
+  ]
+}
