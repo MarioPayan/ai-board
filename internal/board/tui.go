@@ -36,6 +36,10 @@ type model struct {
 	anchors   []int
 	top       string
 
+	dv      *deckView // the open deck, nil on the board
+	picking bool      // D with several decks: the deck list is open
+	pickSel int
+
 	watcher *fsnotify.Watcher
 	watched map[string]bool
 	events  chan struct{}
@@ -90,7 +94,7 @@ func (m *model) watch() {
 	if m.watcher == nil {
 		return
 	}
-	for _, p := range []string{m.dir, filepath.Join(m.dir, "sections")} {
+	for _, p := range []string{m.dir, filepath.Join(m.dir, "sections"), filepath.Join(m.dir, "decisions"), filepath.Join(m.dir, "answers")} {
 		if m.watched[p] {
 			if _, err := os.Stat(p); err != nil { // removed: re-add when it returns
 				delete(m.watched, p)
@@ -134,14 +138,21 @@ func (m *model) layout() {
 	now := time.Now()
 	f := m.r.Render(m.snap, m.w, now)
 	m.top, m.anchors = f.Top, f.Anchors
+	m.vp.Width = m.w
+	if m.dv != nil {
+		m.anchors = nil
+		m.deckLayout()
+		return
+	}
 	body := f.Body
 	switch {
+	case m.picking:
+		body, m.anchors = strings.Join(m.r.renderPicker(validDecks(m.snap), m.pickSel, m.w), "\n"), nil
 	case m.showHelp:
 		body, m.anchors = m.r.RenderHelp(m.w), nil
 	case m.showLog:
 		body, m.anchors = m.r.RenderLog(m.snap, m.w), nil
 	}
-	m.vp.Width = m.w
 	m.vp.Height = max(1, m.h-lipgloss.Height(m.top)-1-m.legendLines()) // footer and legend lines
 	m.vp.SetContent(body)
 }
@@ -168,6 +179,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tick()
 	case fileMsg:
 		m.reload()
+		m.refreshDeck()
 		m.layout()
 		return m, m.waitFile()
 	case probeMsg:
@@ -176,10 +188,25 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Tick(probeEvery, func(time.Time) tea.Msg { return probeTickMsg{} })
 	case probeTickMsg:
 		return m, m.probe()
+	case tea.MouseMsg:
+		switch {
+		case m.dv != nil:
+			return m.deckMouse(msg)
+		case m.picking:
+			return m.pickerMouse(msg)
+		}
 	case tea.KeyMsg:
+		switch {
+		case m.dv != nil:
+			return m.deckKey(msg)
+		case m.picking:
+			return m.pickerKey(msg)
+		}
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "D":
+			return m, m.pressD()
 		case "l":
 			m.showLog, m.showHelp = !m.showLog, false
 			m.vp.GotoTop()
@@ -227,6 +254,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
+	if m.dv != nil && m.dv.editing >= 0 { // the text box's cursor blink
+		var cmd tea.Cmd
+		m.dv.ta, cmd = m.dv.ta.Update(msg)
+		return m, cmd
+	}
 	var cmd tea.Cmd
 	m.vp, cmd = m.vp.Update(msg)
 	return m, cmd
@@ -240,6 +272,12 @@ func (m *model) View() string {
 		return m.top
 	}
 	v := m.top + "\n" + m.vp.View() + "\n"
+	switch {
+	case m.dv != nil:
+		return v + m.deckFooter()
+	case m.picking:
+		return v + m.r.st.dim.Render(trunc("j/k move · enter or click open · esc back", m.w))
+	}
 	if m.r.Legend {
 		v += m.r.LegendLine(m.w) + "\n"
 	}
@@ -270,6 +308,7 @@ func (m *model) footerGroups() []footGroup {
 			{"a", "agents", agentsHidden(m.snap)},
 			{"c", "checks", hasPassingCheck(m.snap)},
 			{"l", "log", true},
+			{"D", "deck", len(validDecks(m.snap)) > 0},
 			{"g", "legend", true},
 		}},
 		{"", []footKey{{"h", "help", true}, {"w", "narrow", true}, {"q", "", true}}},

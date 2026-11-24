@@ -96,6 +96,13 @@ func (r *Renderer) RenderHelp(width int) string {
 	item("🚀", "a service the task started: name, url (the url opens it), login hint")
 	item("✅❌", "up or down at the last probe (every 30 s); ? not probed yet")
 
+	sub("Decks")
+	item("📥", "Deck: title · answered/total: a deck waiting for your answers (D opens it)")
+	item("💬", "Deck: title · Claude: the session's reply to the answers you sent")
+	item("● ○", "picked, not picked; ★ recommended, with why: the reason")
+	item("✓ 1A", "the item's pick; open when it has none")
+	item("✎", "the item's note (n), or the general note (N)")
+
 	sub("Log")
 	item("◆", "commit")
 	item("•", "note")
@@ -121,6 +128,19 @@ func (r *Renderer) RenderHelp(width int) string {
 	item("g", "show or hide the legend line")
 	item("h", "this help")
 	item("w", "narrow footer: keys only")
+	item("D", "open the deck (a list first when there are several)")
 	item("q", "quit")
+
+	sub("Deck keys")
+	item("j k", "next or previous item (also ↑ ↓, ⇥ ⇧⇥); pgup pgdn and the wheel scroll")
+	item("a-d 1-9", "pick that option; the same key again clears it; x clears")
+	item("y r f", "on an Approve / Reject / Defer item: approve, reject, defer")
+	item("R", "fill every open item with its recommendation (never replaces a pick)")
+	item("u", "jump to the next item without a pick")
+	item("n N", "edit the item note, the general note (enter saves, alt+enter newline, esc cancels)")
+	item("o", "open the item's link, else the deck's")
+	item("s", "send: write the answers and copy them (asks first when items are open)")
+	item("esc D", "back to the board")
+	item("click", "an option picks it, ✎ edits the note, [Send] sends")
 	return strings.Join(lines, "\n")
 }

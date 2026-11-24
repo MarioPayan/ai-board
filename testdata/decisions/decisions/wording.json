@@ -1,0 +1,1 @@
+{ "id": "wording", "title": "Footer wording", "round": 2, "items": [ { "n": 1, "kind": "confirm", "title": "Keep the labels", "summary": "Short labels." } ] }

@@ -1,0 +1,8 @@
+{
+  "title": "Decision panel",
+  "status": { "state": "waiting", "text": "Waiting on the deck" },
+  "steps": [
+    { "text": "Build the deck", "state": "done", "started": "2026-11-24T09:00:00-05:00", "ended": "2026-11-24T09:20:00-05:00" },
+    { "text": "Read the answers", "state": "waiting", "note": "your picks", "started": "2026-11-24T09:20:00-05:00" }
+  ]
+}
