@@ -1,6 +1,6 @@
 # AI Board
 
-A read-only terminal viewer for Claude Code session boards. Claude and hooks write small files into `~/.claude/boards/<session-id>/`; `ai-board` watches that directory and renders what needs Mario (pending items) and running subagents at the top, then the plan, the PRs the task tracks, the local services it started (probed up or down), the sections (Markdown, charts, tables, checks) under Details, and a log.
+A terminal viewer for Claude Code session boards, with a decision panel. Claude and hooks write small files into `~/.claude/boards/<session-id>/`; `ai-board` watches that directory and renders what needs Mario (pending items, decks to answer) and running subagents at the top, then the plan, the PRs the task tracks, the local services it started (probed up or down), the sections (Markdown, charts, tables, checks) under Details, and a log. `D` opens a decision deck that Claude wrote to `decisions/<id>.json` (the web decision deck's JSON, unchanged): Mario picks options, writes notes and sends, and the viewer writes the answers to `answers/<id>-r<round>.txt` in the web deck's answer grammar and copies them. Outside the deck view it only reads.
 
 The file formats, layout, keys and CLI are defined in [SPEC.md](SPEC.md).
 
@@ -56,12 +56,16 @@ ai-board pr set <repo#n> [--title T] [--url U] [--state open|draft|merged|closed
 ai-board pr rm <repo#n>                        # PRs section: one row per PR, CI ✅❌⏳, review 👍👎👀
 ai-board run set <name> [--url U] [--cmd C] [--login HINT]   # Running section: ✅ up / ❌ down, probed every 30s; login is a hint, never a secret
 ai-board run rm <name>
+ai-board answers wait <deck-id> [--round N] [--dir D]   # block until the deck is answered, print the answers
+ai-board --once --deck <deck-id> <id-or-dir>   # one uncolored frame of the deck view
 ai-board hook                                  # Claude Code hook: reads the payload on stdin
 ```
 
-Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between sections, `l` toggles the full log, `h` toggles a full-screen help (every marker, icon, colour and key), `d` expands or collapses finished steps, `a` lists every agent in the body, `c` lists every check or only the failing ones, `g` shows or hides a legend line of the plan markers, `w` toggles a narrow footer with keys only, `q` quits. The six-line header (title, status with counts, three slots for what needs attention, a rule) and the one-line footer keep the same shape: the footer shows every key in a fixed place, darker when it would do nothing, and `↓ N` or `end` on the right while the body scrolls.
+Keys: `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` jump between sections, `l` toggles the full log, `h` toggles a full-screen help (every marker, icon, colour and key), `d` expands or collapses finished steps, `a` lists every agent in the body, `c` lists every check or only the failing ones, `g` shows or hides a legend line of the plan markers, `w` toggles a narrow footer with keys only, `D` opens the deck view (a list first when there are several decks), `q` quits. The six-line header (title, status with counts, three slots for what needs attention, a rule) and the one-line footer keep the same shape: the footer shows every key in a fixed place, darker when it would do nothing, and `↓ N` or `end` on the right while the body scrolls.
 
 `ai-board hook` handles `SubagentStart` (named `<agent_type>: <task description>` from the subagent's meta file), `SubagentStop` and `PostToolUse` (Bash `git commit`). It only writes into a board directory that already exists and always exits 0.
+
+Deck view keys: `j`/`k`/`tab` move between items, `a`-`d` or `1`-`9` pick (the same key or click again clears, `x` clears), `y`/`r`/`f` approve, reject or defer a confirm item, `R` fills every open item with its recommendation (never replacing a pick), `u` jumps to the next unanswered item, `n` edits the item note and `N` the general note (enter saves, alt+enter newline, esc cancels), `o` opens the item's or deck's url, `s` or the Send button sends (asking `N open: send anyway? y/n` when items are open), wheel and `pgup`/`pgdn` scroll, `esc`/`D` back. The mouse is on only in the deck view, so text selection keeps working on the board. Every change autosaves to `answers/<id>-r<round>.draft.json`; a one-line `answers/<id>-r<round>.ack` from Claude shows as `Claude: <ack>` in the deck view and the header. Sessions run `ai-board answers wait <id>` in the background to be woken by Send.
 
 ## Development
 
