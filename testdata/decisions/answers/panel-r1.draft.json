@@ -1,5 +1,11 @@
 {
   "choices": { "1": "A", "2": "B" },
   "notes": { "1": "keep it\nsimple" },
-  "general": ""
+  "optNotes": { "1": { "B": "only if decks get shared" } },
+  "general": "",
+  "extra": {
+    "3": [
+      { "key": "C", "title": "Note in the header slot", "summary": "Show the note under the deck row.", "pros": ["Always visible"], "cons": ["Crowds the slots"], "effort": "S", "risk": "low", "generated": true }
+    ]
+  }
 }

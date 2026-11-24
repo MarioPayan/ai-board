@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -47,7 +49,10 @@ type DeckOption struct {
 	Cons    []string `json:"cons"`
 	Effort  string   `json:"effort"`
 	Risk    string   `json:"risk"`
-	Mock    string   `json:"mock"`
+	Mock    string   `json:"mock,omitempty"`
+	// Generated marks an option Claude proposed from the deck view (Suggest);
+	// such options live in the draft's `extra`, not in the deck file.
+	Generated bool `json:"generated,omitempty"`
 }
 
 // confirmOptions are the options of a `kind: confirm` item, with the keys
@@ -62,13 +67,45 @@ func (it DeckItem) OptionsList() []DeckOption {
 	return it.Options
 }
 
-func (it DeckItem) option(key string) (DeckOption, bool) {
-	for _, o := range it.OptionsList() {
+// otherKey is the choice of an item answered with Other, as in the web
+// template.
+const otherKey = "other"
+
+// OptionsFor is the item's options followed by the options generated for it
+// in the draft, the web template's optionsFor().
+func OptionsFor(it DeckItem, s DeckState) []DeckOption {
+	return slices.Concat(it.OptionsList(), s.Extra[it.N])
+}
+
+func optionFor(it DeckItem, s DeckState, key string) (DeckOption, bool) {
+	for _, o := range OptionsFor(it, s) {
 		if o.Key == key {
 			return o, true
 		}
 	}
 	return DeckOption{}, false
+}
+
+// picked reports whether the item has an answer: an option or Other.
+func picked(it DeckItem, s DeckState) bool {
+	c := s.Choices[it.N]
+	if c == otherKey {
+		return true
+	}
+	_, ok := optionFor(it, s, c)
+	return ok
+}
+
+// NextKey is the key a generated option of it gets: the letter after the
+// highest key in use, the web template's nextKey().
+func NextKey(it DeckItem, s DeckState) string {
+	hi := rune('A' - 1)
+	for _, o := range OptionsFor(it, s) {
+		if r := []rune(o.Key); len(r) > 0 && r[0] > hi {
+			hi = r[0]
+		}
+	}
+	return string(hi + 1)
 }
 
 // OpenItems is every item not decided in an earlier round, in file order.
@@ -82,24 +119,85 @@ func (d *Deck) OpenItems() []DeckItem {
 	return out
 }
 
-// DeckState is the answers being drafted: the option key picked per item
-// number, the item notes and the general note. It is the draft file's
-// shape, a subset of the web template's state.
+// DeckState is the answers being drafted: the option key (or "other")
+// picked per item number, the Other texts, the item notes, the notes on
+// options, the options generated per item and the general note. It is the
+// draft file's shape: the web template's state without its asks.
 type DeckState struct {
-	Choices map[int]string `json:"choices"`
-	Notes   map[int]string `json:"notes"`
-	General string         `json:"general"`
+	Choices  map[int]string            `json:"choices"`
+	Other    map[int]string            `json:"other,omitempty"`
+	Notes    map[int]string            `json:"notes"`
+	OptNotes map[int]map[string]string `json:"optNotes,omitempty"`
+	General  string                    `json:"general"`
+	Extra    map[int][]DeckOption      `json:"extra,omitempty"`
 }
 
 func newDeckState() DeckState {
 	return DeckState{Choices: map[int]string{}, Notes: map[int]string{}}
 }
 
-// Answered counts the open items with a pick.
+// clone is a deep copy of s.
+func (s DeckState) clone() DeckState {
+	c := s
+	c.Choices, c.Other, c.Notes = maps.Clone(s.Choices), maps.Clone(s.Other), maps.Clone(s.Notes)
+	if s.OptNotes != nil {
+		c.OptNotes = map[int]map[string]string{}
+		for n, on := range s.OptNotes {
+			c.OptNotes[n] = maps.Clone(on)
+		}
+	}
+	if s.Extra != nil {
+		c.Extra = map[int][]DeckOption{}
+		for n, os := range s.Extra {
+			c.Extra[n] = slices.Clone(os)
+		}
+	}
+	return c
+}
+
+// setOther stores the Other text of item n; empty removes it.
+func (s *DeckState) setOther(n int, text string) {
+	if text == "" {
+		delete(s.Other, n)
+		return
+	}
+	if s.Other == nil {
+		s.Other = map[int]string{}
+	}
+	s.Other[n] = text
+}
+
+// setOptNote stores the note on option key of item n; empty removes it.
+func (s *DeckState) setOptNote(n int, key, text string) {
+	if text == "" {
+		delete(s.OptNotes[n], key)
+		if len(s.OptNotes[n]) == 0 {
+			delete(s.OptNotes, n)
+		}
+		return
+	}
+	if s.OptNotes == nil {
+		s.OptNotes = map[int]map[string]string{}
+	}
+	if s.OptNotes[n] == nil {
+		s.OptNotes[n] = map[string]string{}
+	}
+	s.OptNotes[n][key] = text
+}
+
+// addExtra appends a generated option to item n.
+func (s *DeckState) addExtra(n int, o DeckOption) {
+	if s.Extra == nil {
+		s.Extra = map[int][]DeckOption{}
+	}
+	s.Extra[n] = append(s.Extra[n], o)
+}
+
+// Answered counts the open items with a pick (an option or Other).
 func (d *Deck) Answered(s DeckState) (done, total int) {
 	for _, it := range d.OpenItems() {
 		total++
-		if _, ok := it.option(s.Choices[it.N]); ok {
+		if picked(it, s) {
 			done++
 		}
 	}
@@ -111,10 +209,10 @@ func (d *Deck) Answered(s DeckState) (done, total int) {
 func (d *Deck) FillRecommended(s DeckState) int {
 	n := 0
 	for _, it := range d.OpenItems() {
-		if _, picked := it.option(s.Choices[it.N]); picked || it.Recommended == "" {
+		if picked(it, s) || it.Recommended == "" {
 			continue
 		}
-		if _, ok := it.option(it.Recommended); ok {
+		if _, ok := optionFor(it, s, it.Recommended); ok {
 			s.Choices[it.N] = it.Recommended
 			n++
 		}
@@ -139,18 +237,33 @@ func noteLines(label, text string) []string {
 func Serialize(d *Deck, s DeckState) string {
 	out := []string{fmt.Sprintf("DECISIONS · %s · round %d", d.ID, d.Round), "# " + d.Title, ""}
 	for _, it := range d.OpenItems() {
-		o, ok := it.option(s.Choices[it.N])
-		if !ok {
+		c := s.Choices[it.N]
+		o, ok := optionFor(it, s, c)
+		switch {
+		case c == otherKey:
+			out = append(out, fmt.Sprintf("%d Other — %s: \"%s\"", it.N, it.Title, strings.TrimSpace(s.Other[it.N])))
+		case !ok:
 			out = append(out, fmt.Sprintf("%d skipped — %s", it.N, it.Title))
-		} else {
-			flag := ""
+		default:
+			flags := ""
 			if o.Key == it.Recommended {
-				flag = " (recommended)"
+				flags = " (recommended)"
 			}
-			out = append(out, fmt.Sprintf("%d%s — %s: %s%s", it.N, o.Key, it.Title, o.Title, flag))
+			if o.Generated {
+				flags += " (generated in page)"
+			}
+			out = append(out, fmt.Sprintf("%d%s — %s: %s%s", it.N, o.Key, it.Title, o.Title, flags))
+			if o.Generated {
+				out = append(out, noteLines("option", o.Summary)...)
+			}
 		}
 		if strings.TrimSpace(s.Notes[it.N]) != "" {
 			out = append(out, noteLines("note", s.Notes[it.N])...)
+		}
+		for _, o := range OptionsFor(it, s) {
+			if on := s.OptNotes[it.N][o.Key]; strings.TrimSpace(on) != "" {
+				out = append(out, noteLines("note on "+o.Key, on)...)
+			}
 		}
 	}
 	if g := strings.TrimSpace(s.General); g != "" {
