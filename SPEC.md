@@ -1,15 +1,15 @@
-# board — spec
+# AI Board — spec
 
-A read-only terminal viewer for Claude Code session boards. Claude and hooks write small files into one directory per session; `board` watches that directory and renders it. This file is the contract between the writers and the viewer.
+A read-only terminal viewer for Claude Code session boards. Claude and hooks write small files into one directory per session; `ai-board` watches that directory and renders it. This file is the contract between the writers and the viewer.
 
 ## Directory
 
 ```
 ~/.claude/boards/<session-id>/
-  board.json            Claude (whole file, or `board step`): title, status, steps, pending
+  board.json            Claude (whole file, or `ai-board step`): title, status, steps, pending
   status.json           Stop hook (lib/meta/stop-guard.py): latest status, overrides board.json status when newer
-  agents.jsonl          hooks + `board agent`: running subagents (append-only)
-  log.jsonl             hooks + `board log`: events (append-only)
+  agents.jsonl          hooks + `ai-board agent`: running subagents (append-only)
+  log.jsonl             hooks + `ai-board log`: events (append-only)
   sections/
     10-findings.md          free Markdown
     20-space.chart.json     chart
@@ -44,8 +44,8 @@ Every file is optional. A missing directory renders a "⏳ waiting for <path>" s
 - `steps[].state`: `done` ✅, `active` ▶️, `waiting` (on Mario) 📥, `external` (CI, an approval, a deploy) ⏳, `failed` ❌, `todo` ⚪, `skipped` (shown like done, struck through). `note` is one clause shown inline after the step text (what it waits on, why it failed, why skipped). `link` is optional, for `external` steps: the CI run, PR or page being awaited, opened from the header slot.
 - `started` / `ended` are RFC 3339. The viewer derives times from them; writers never compute durations.
 - All steps stay in the list for the whole task. The viewer collapses finished steps into one summary line when there are more than three (see Layout); writers never remove them.
-- `prs` (optional): the pull requests the task tracks, one per `repo` + `n`. `state` is `open`, `draft`, `merged` or `closed`; `ci` is `pass`, `fail`, `pending` or empty; `review` is `approved`, `changes` (changes requested), `pending` or empty; `title` and `url` are optional. `board pr set|rm` edits them (see CLI). They render in their own block (see Layout) and do not change the header counts: a failing CI is the PR's own state, already visible in its row, and the step that waits on it is the `external` step the header counts.
-- `running` (optional): local services the task started, one per `name`. `url` is optional (the viewer probes it when it is http or https), `cmd` is how it was started (for writers restarting it; not rendered) and `login` is a free-text hint at where the credentials live (`user in 1Password: Foo`). `login` must never contain a secret (no password, token or key): the board is plain files and is shown on screen. `board run set|rm` edits them.
+- `prs` (optional): the pull requests the task tracks, one per `repo` + `n`. `state` is `open`, `draft`, `merged` or `closed`; `ci` is `pass`, `fail`, `pending` or empty; `review` is `approved`, `changes` (changes requested), `pending` or empty; `title` and `url` are optional. `ai-board pr set|rm` edits them (see CLI). They render in their own block (see Layout) and do not change the header counts: a failing CI is the PR's own state, already visible in its row, and the step that waits on it is the `external` step the header counts.
+- `running` (optional): local services the task started, one per `name`. `url` is optional (the viewer probes it when it is http or https), `cmd` is how it was started (for writers restarting it; not rendered) and `login` is a free-text hint at where the credentials live (`user in 1Password: Foo`). `login` must never contain a secret (no password, token or key): the board is plain files and is shown on screen. `ai-board run set|rm` edits them.
 
 ## agents.jsonl
 
@@ -144,37 +144,37 @@ The six header lines stay fixed; everything below scrolls. Times refresh every s
 
 Keys (single keys, no Shift except `shift+tab`): `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` (active only when the body scrolls) jump between Agents (when in the body), Plan, PRs, Running, each Details subsection and Log, `l` toggles a full-screen log, `h` toggles the full-screen help, `d` expands or collapses finished steps, `a` lists every agent in the body, `c` lists every check or only the failing ones, `g` shows or hides the legend line, `w` toggles the narrow footer, `q` quits.
 
-The viewer sets the terminal title to `board: <session-id>`; the opener script finds an existing pane by that title.
+The viewer sets the terminal title to `board: <session-id>` (kept from before the `ai-board` rename, so the opener finds a pane of either binary); the opener script finds an existing pane by that title.
 
 ## CLI
 
 ```
-board [<session-id>]             watch and render (default: newest board directory by mtime)
-board --once [--width N] [--expand] [--checks] [--agents] [--legend] [<id>]
+ai-board [<session-id>]          watch and render (default: newest board directory by mtime)
+ai-board --once [--width N] [--expand] [--checks] [--agents] [--legend] [<id>]
                                  render a single frame to stdout without color and exit
-board log [--kind K] <text>      append to log.jsonl of $CLAUDE_CODE_SESSION_ID
-board agent start <id> <name> [--expect MIN]
-board agent stop <id> [--failed]
-board step <index|text-prefix> <state> [--note TEXT] [--link URL] [--dir D]
-board step add <text> [--state S] [--dir D]
-board check [--hours N] [--dir D]
-board archive [--days N] [--dry-run]
-board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]
-board pr rm <repo#n> [--dir D]
-board run set <name> [--url U] [--cmd C] [--login HINT] [--dir D]
-board run rm <name> [--dir D]
-board hook                       read a Claude Code hook payload on stdin and append events
+ai-board log [--kind K] <text>   append to log.jsonl of $CLAUDE_CODE_SESSION_ID
+ai-board agent start <id> <name> [--expect MIN]
+ai-board agent stop <id> [--failed]
+ai-board step <index|text-prefix> <state> [--note TEXT] [--link URL] [--dir D]
+ai-board step add <text> [--state S] [--dir D]
+ai-board check [--hours N] [--dir D]
+ai-board archive [--days N] [--dry-run]
+ai-board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]
+ai-board pr rm <repo#n> [--dir D]
+ai-board run set <name> [--url U] [--cmd C] [--login HINT] [--dir D]
+ai-board run rm <name> [--dir D]
+ai-board hook                    read a Claude Code hook payload on stdin and append events
 ```
 
-`board step` edits `board.json` in place of a whole-file write: it reads the file, changes one step and replaces it atomically (temp file, rename). Every field it does not change, including ones this spec does not name, is kept; keys are written in sorted order. A board.json that does not parse is left untouched and the command fails. The step is a 1-based index or a case-insensitive prefix of exactly one step's text. `<state>` is one of the `steps[].state` values. Moving into `active`, `waiting` or `external` sets `started` (RFC 3339, local offset) when it is unset; moving into `done`, `failed` or `skipped` sets `ended` (kept when the step was already in that state); moving into any unfinished state removes `ended`. `--note` / `--link` set those fields, and an empty value removes them. `board step add` appends a step (`todo` unless `--state`), stamped the same way. `--dir` names the board directory; the default is `$CLAUDE_CODE_SESSION_ID`'s, created when missing.
+`ai-board step` edits `board.json` in place of a whole-file write: it reads the file, changes one step and replaces it atomically (temp file, rename). Every field it does not change, including ones this spec does not name, is kept; keys are written in sorted order. A board.json that does not parse is left untouched and the command fails. The step is a 1-based index or a case-insensitive prefix of exactly one step's text. `<state>` is one of the `steps[].state` values. Moving into `active`, `waiting` or `external` sets `started` (RFC 3339, local offset) when it is unset; moving into `done`, `failed` or `skipped` sets `ended` (kept when the step was already in that state); moving into any unfinished state removes `ended`. `--note` / `--link` set those fields, and an empty value removes them. `ai-board step add` appends a step (`todo` unless `--state`), stamped the same way. `--dir` names the board directory; the default is `$CLAUDE_CODE_SESSION_ID`'s, created when missing.
 
-`board pr set` adds the PR `repo#n` to `prs` or updates it: only the fields given change, and an empty value removes one. Values outside the `prs` enums are refused. `board pr rm` removes it (an error when absent). Both edit board.json like `board step`. `board run set` and `board run rm` do the same for the `running` entry `<name>` (the rest of the arguments, spaces allowed).
+`ai-board pr set` adds the PR `repo#n` to `prs` or updates it: only the fields given change, and an empty value removes one. Values outside the `prs` enums are refused. `ai-board pr rm` removes it (an error when absent). Both edit board.json like `ai-board step`. `ai-board run set` and `ai-board run rm` do the same for the `running` entry `<name>` (the rest of the arguments, spaces allowed).
 
-`board check` prints one line per step that looks stuck: `active`, `waiting` or `external` for more than `--hours` (default 4) since its `started` (`step <i> "<text>": <state> for <duration>`), and `active` with no `started` (`step <i> "<text>": active with no started`). Without `--dir` it reads `$CLAUDE_CODE_SESSION_ID`'s board, and prints nothing when that is unset too. It exits 1 when it printed any line and 0 when the board is clean; its own errors (a bad flag) go to stderr with exit 0, so a Stop hook that calls it reads a nonzero exit only as stuck steps.
+`ai-board check` prints one line per step that looks stuck: `active`, `waiting` or `external` for more than `--hours` (default 4) since its `started` (`step <i> "<text>": <state> for <duration>`), and `active` with no `started` (`step <i> "<text>": active with no started`). Without `--dir` it reads `$CLAUDE_CODE_SESSION_ID`'s board, and prints nothing when that is unset too. It exits 1 when it printed any line and 0 when the board is clean; its own errors (a bad flag) go to stderr with exit 0, so a Stop hook that calls it reads a nonzero exit only as stuck steps.
 
-`board archive` moves into `~/.claude/boards/.archive/<name>` every board directory with no file modified in `--days` days (default 7), plus every loose file in `~/.claude/boards/` (the old one-file format, `<id>.md` / `<id>.src.md`) whatever its age. A directory whose `board.json` does not parse is a live board with a writer bug, not an old one, so only idleness archives it. It never touches `$CLAUDE_CODE_SESSION_ID`'s board or files named after it, nor a name already in `.archive` (reported as `skipped`). It prints one line per entry, `archived <name>  <reason>` (`idle <N>d`, `old format`); `--dry-run` prints `would archive …` and moves nothing.
+`ai-board archive` moves into `~/.claude/boards/.archive/<name>` every board directory with no file modified in `--days` days (default 7), plus every loose file in `~/.claude/boards/` (the old one-file format, `<id>.md` / `<id>.src.md`) whatever its age. A directory whose `board.json` does not parse is a live board with a writer bug, not an old one, so only idleness archives it. It never touches `$CLAUDE_CODE_SESSION_ID`'s board or files named after it, nor a name already in `.archive` (reported as `skipped`). It prints one line per entry, `archived <name>  <reason>` (`idle <N>d`, `old format`); `--dry-run` prints `would archive …` and moves nothing.
 
-`board hook` handles:
+`ai-board hook` handles:
 
 - `SubagentStart` → agent `start` (id `agent_id`). The name is `<agent_type>: <description>`, the description read from `<transcript_path without .jsonl>/subagents/agent-<agent_id>.meta.json` (field `description`), which Claude Code writes before the event; when that file is missing, unreadable or has no description, the name is `agent_type` (or `agent_id` when that is empty too).
 - `SubagentStop` → agent `stop`.
