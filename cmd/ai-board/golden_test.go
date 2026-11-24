@@ -92,7 +92,7 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !bytes.Equal(out.Bytes(), want) {
-				t.Errorf("render differs from %s (run go test ./cmd/board -update)\n--- got\n%s\n--- want\n%s", golden, out.String(), want)
+				t.Errorf("render differs from %s (run go test ./cmd/ai-board -update)\n--- got\n%s\n--- want\n%s", golden, out.String(), want)
 			}
 		})
 	}

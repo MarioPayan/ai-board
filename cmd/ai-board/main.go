@@ -1,4 +1,4 @@
-// Command board renders Claude Code session boards. See SPEC.md.
+// Command ai-board renders Claude Code session boards. See SPEC.md.
 package main
 
 import (
@@ -16,21 +16,21 @@ import (
 )
 
 const usage = `usage:
-  board [<session-id|dir>]                       watch and render
-  board --once [--width N] [--now RFC3339] [--expand] [--checks] [--agents] [--legend] [<id>]
+  ai-board [<session-id|dir>]                    watch and render
+  ai-board --once [--width N] [--now RFC3339] [--expand] [--checks] [--agents] [--legend] [<id>]
                                                  render one frame without color
-  board log [--kind K] <text>
-  board agent start <id> <name> [--expect MIN]
-  board agent stop <id> [--failed]
-  board step <index|text-prefix> <state> [--note T] [--link URL] [--dir D]
-  board step add <text> [--state S] [--dir D]
-  board check [--hours N] [--dir D]              list stuck steps
-  board archive [--days N] [--dry-run]           move idle and old-format boards to .archive
-  board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]
-  board pr rm <repo#n> [--dir D]
-  board run set <name> [--url U] [--cmd C] [--login HINT] [--dir D]
-  board run rm <name> [--dir D]
-  board hook                                    read a hook payload on stdin
+  ai-board log [--kind K] <text>
+  ai-board agent start <id> <name> [--expect MIN]
+  ai-board agent stop <id> [--failed]
+  ai-board step <index|text-prefix> <state> [--note T] [--link URL] [--dir D]
+  ai-board step add <text> [--state S] [--dir D]
+  ai-board check [--hours N] [--dir D]           list stuck steps
+  ai-board archive [--days N] [--dry-run]        move idle and old-format boards to .archive
+  ai-board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]
+  ai-board pr rm <repo#n> [--dir D]
+  ai-board run set <name> [--url U] [--cmd C] [--login HINT] [--dir D]
+  ai-board run rm <name> [--dir D]
+  ai-board hook                                 read a hook payload on stdin
 `
 
 func main() {
@@ -62,7 +62,7 @@ func main() {
 			// its own errors go to stderr with exit 0, never read as problems
 			n, err := cmdCheck(os.Args[2:], os.Stdout)
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "board check:", err)
+				fmt.Fprintln(os.Stderr, "ai-board check:", err)
 			}
 			if n > 0 {
 				os.Exit(1)
@@ -75,13 +75,13 @@ func main() {
 
 func exit(err error) {
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "board:", err)
+		fmt.Fprintln(os.Stderr, "ai-board:", err)
 		os.Exit(1)
 	}
 }
 
 func cmdView(args []string, stdout io.Writer) error {
-	fs := flag.NewFlagSet("board", flag.ContinueOnError)
+	fs := flag.NewFlagSet("ai-board", flag.ContinueOnError)
 	fs.Usage = func() { fmt.Fprint(os.Stderr, usage) }
 	once := fs.Bool("once", false, "render one frame and exit")
 	width := fs.Int("width", 80, "width for --once")
@@ -200,7 +200,7 @@ func cmdLog(args []string) error {
 	}
 	text := strings.TrimSpace(strings.Join(args, " "))
 	if text == "" {
-		return errors.New("usage: board log [--kind K] <text>")
+		return errors.New("usage: ai-board log [--kind K] <text>")
 	}
 	dir, err := sessionDir()
 	if err != nil {
@@ -227,7 +227,7 @@ func cmdAgent(args []string) error {
 			}
 		}
 		if len(args) < 2 {
-			return errors.New("usage: board agent start <id> <name> [--expect MIN]")
+			return errors.New("usage: ai-board agent start <id> <name> [--expect MIN]")
 		}
 		dir, err := sessionDir()
 		if err != nil {
@@ -240,7 +240,7 @@ func cmdAgent(args []string) error {
 			return err
 		}
 		if len(args) != 1 {
-			return errors.New("usage: board agent stop <id> [--failed]")
+			return errors.New("usage: ai-board agent stop <id> [--failed]")
 		}
 		dir, err := sessionDir()
 		if err != nil {
@@ -275,7 +275,7 @@ func cmdStep(args []string) error {
 		}
 		text := strings.TrimSpace(strings.Join(args, " "))
 		if text == "" {
-			return errors.New("usage: board step add <text> [--state S]")
+			return errors.New("usage: ai-board step add <text> [--state S]")
 		}
 		dir, err := boardDir(dirFlag)
 		if err != nil {
@@ -292,7 +292,7 @@ func cmdStep(args []string) error {
 		return err
 	}
 	if len(args) != 2 {
-		return errors.New("usage: board step <index|text-prefix> <state> [--note T] [--link URL]")
+		return errors.New("usage: ai-board step <index|text-prefix> <state> [--note T] [--link URL]")
 	}
 	dir, err := boardDir(dirFlag)
 	if err != nil {
@@ -327,7 +327,7 @@ func takeFields(args []string, names ...string) ([]string, map[string]string, er
 }
 
 func cmdPR(args []string) error {
-	const use = "usage: board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]\n       board pr rm <repo#n> [--dir D]"
+	const use = "usage: ai-board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]\n       ai-board pr rm <repo#n> [--dir D]"
 	args, fields, err := takeFields(args, "dir", "title", "url", "state", "ci", "review")
 	if err != nil {
 		return err
@@ -352,7 +352,7 @@ func cmdPR(args []string) error {
 }
 
 func cmdRun(args []string) error {
-	const use = "usage: board run set <name> [--url U] [--cmd C] [--login HINT] [--dir D]\n       board run rm <name> [--dir D]"
+	const use = "usage: ai-board run set <name> [--url U] [--cmd C] [--login HINT] [--dir D]\n       ai-board run rm <name> [--dir D]"
 	args, fields, err := takeFields(args, "dir", "url", "cmd", "login")
 	if err != nil {
 		return err
@@ -380,7 +380,7 @@ func cmdArchive(args []string, stdout io.Writer) error {
 		return err
 	}
 	if len(args) > 0 {
-		return errors.New("usage: board archive [--days N] [--dry-run]")
+		return errors.New("usage: ai-board archive [--days N] [--dry-run]")
 	}
 	d := 7.0
 	if found {
