@@ -191,6 +191,7 @@ type Snapshot struct {
 	Log       []LogEntry
 	LogErrs   []string
 	Sections  []Section
+	Decks     []DeckFile // decisions/*.json, in file-name order
 	Updated   time.Time
 }
 
@@ -236,6 +237,7 @@ func Load(dir string) *Snapshot {
 	s.Log, s.LogErrs = loadLog(lp)
 
 	s.Sections = loadSections(filepath.Join(dir, "sections"), note)
+	s.Decks = loadDecks(dir, note)
 	return s
 }
 
