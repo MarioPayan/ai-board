@@ -253,7 +253,7 @@ func TestDeckViewKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal("s with every item picked should send: ", err)
 	}
-	want := "DECISIONS · panel · round 1\n# Panel build choices\n\n1A — Where deck files live: decisions/ in the board dir (recommended)\n   note: keep it\n      simple\n2A — Ship the R key: Approve\n3A — Note editor: Inline text box (recommended)\n\nGeneral notes:\n   all good"
+	want := "DECISIONS · panel · round 1\n# Panel build choices\n\n1A — Where deck files live: decisions/ in the board dir (recommended)\n   note: keep it\n      simple\n   note on B: only if decks get shared\n2A — Ship the R key: Approve\n3A — Note editor: Inline text box (recommended)\n\nGeneral notes:\n   all good"
 	if string(b) != want {
 		t.Errorf("answers file:\n%s\n--- want\n%s", b, want)
 	}
@@ -291,15 +291,15 @@ func TestDeckViewMouse(t *testing.T) {
 		}
 		t.Fatalf("no line targets %v", target)
 	}
-	click(deckTarget{2, 1}) // item 3, option B
+	click(deckTarget{item: 2, opt: 1}) // item 3, option B
 	if m.dv.state.Choices[3] != "B" {
 		t.Errorf("click should pick 3B: %v", m.dv.state.Choices)
 	}
-	click(deckTarget{2, 1})
+	click(deckTarget{item: 2, opt: 1})
 	if _, ok := m.dv.state.Choices[3]; ok {
 		t.Error("a second click should clear the pick")
 	}
-	click(deckTarget{0, tgtNote})
+	click(deckTarget{item: 0, opt: tgtNote})
 	if m.dv.editing != 0 || m.dv.ta.Value() != "keep it\nsimple" {
 		t.Errorf("clicking the note should open it: editing %d %q", m.dv.editing, m.dv.ta.Value())
 	}

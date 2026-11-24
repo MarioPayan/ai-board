@@ -13,21 +13,41 @@ import (
 // index or one of the tgt* values; item is an index into the open items,
 // len(open items) being the general note.
 const (
-	tgtHeader = -1 // focus the item
-	tgtNote   = -2 // edit its note
-	tgtURL    = -3 // open its url
+	tgtHeader  = -1 // focus the item
+	tgtNote    = -2 // edit its note
+	tgtURL     = -3 // open its url
+	tgtOther   = -4 // pick Other and edit its text
+	tgtSuggest = -5 // ask Claude for another option
 )
 
-type deckTarget struct{ item, opt int }
+// deckTarget is a click target. With note set, opt is an option index and
+// the click edits the note on that option.
+type deckTarget struct {
+	item, opt int
+	note      bool
+}
 
 // deckBody is a rendered deck: its lines, the click target of each line
-// that has one, and the first line of every open item (and, last, of the
-// general note).
+// that has one, the first line of every open item (and, last, of the
+// general note), and, on option lines that show `+ note`, the column where
+// it starts.
 type deckBody struct {
 	lines    []string
 	targets  map[int]deckTarget
 	itemLine []int
+	noteX    map[int]int
 }
+
+// deckFocus is what the deck view highlights: the focused item, the
+// focused option of it (-1 for none) and the items whose Suggest is
+// running.
+type deckFocus struct {
+	item, opt int
+	thinking  map[int]bool
+}
+
+// addNote is the click target shown after an option without a note.
+const addNote = "+ note"
 
 var riskColor = map[string]string{"low": "2", "med": "3", "high": "1"}
 
@@ -51,10 +71,11 @@ func wrapLines(text, prefix, indent string, st lipgloss.Style, width int) []stri
 // renderDeck lays out a deck view body: the deck title, its intro, the
 // session's ack, earlier decisions, then every open item with its options
 // and note, and the general note. cur is the focused item.
-func (r *Renderer) renderDeck(f DeckFile, s DeckState, cur, width int) deckBody {
+func (r *Renderer) renderDeck(f DeckFile, s DeckState, fc deckFocus, width int) deckBody {
 	r.init()
+	cur := fc.item
 	d := &f.Deck
-	b := deckBody{targets: map[int]deckTarget{}}
+	b := deckBody{targets: map[int]deckTarget{}, noteX: map[int]int{}}
 	add := func(t *deckTarget, lines ...string) {
 		for _, l := range lines {
 			if t != nil {
@@ -107,10 +128,12 @@ func (r *Renderer) renderDeck(f DeckFile, s DeckState, cur, width int) deckBody 
 	for i, it := range open {
 		add(nil, "")
 		b.itemLine[i] = len(b.lines)
-		hdr := &deckTarget{i, tgtHeader}
+		hdr := &deckTarget{item: i, opt: tgtHeader}
 		mark, ts := focus(i)
 		pick := r.st.dim.Render("open")
-		if o, ok := it.option(s.Choices[it.N]); ok {
+		if c := s.Choices[it.N]; c == otherKey {
+			pick = r.st.ok.Render(fmt.Sprintf("✓ %d Other", it.N))
+		} else if o, ok := optionFor(it, s, c); ok {
 			pick = r.st.ok.Render(fmt.Sprintf("✓ %d%s", it.N, o.Key))
 		}
 		add(hdr, row(mark+ts.Render(fmt.Sprintf("%d. %s", it.N, it.Title)), pick, width))
@@ -125,20 +148,33 @@ func (r *Renderer) renderDeck(f DeckFile, s DeckState, cur, width int) deckBody 
 			if r.Color {
 				u = ansi.SetHyperlink(hyperlinkURI(it.URL)) + u + ansi.ResetHyperlink()
 			}
-			add(&deckTarget{i, tgtURL}, "   "+u)
+			add(&deckTarget{item: i, opt: tgtURL}, "   "+u)
 		}
-		for j, o := range it.OptionsList() {
-			t := &deckTarget{i, j}
+		for j, o := range OptionsFor(it, s) {
+			t := &deckTarget{item: i, opt: j}
 			dot, st := "○", lipgloss.NewStyle()
 			if s.Choices[it.N] == o.Key {
 				dot, st = r.st.ok.Render("●"), r.st.ok.Bold(true)
 			}
-			left := fmt.Sprintf("   %s %s  %s", dot, st.Render(o.Key), st.Render(o.Title))
-			if it.Kind == "confirm" {
-				left += r.st.dim.Render("  " + confirmAlias[o.Key])
+			mark := "   "
+			if i == cur && j == fc.opt {
+				mark = r.st.accent.Render(" › ")
+			}
+			left := fmt.Sprintf("%s%s %s  %s", mark, dot, st.Render(o.Key), st.Render(o.Title))
+			if alias := confirmAlias[o.Key]; it.Kind == "confirm" && alias != "" {
+				left += r.st.dim.Render("  " + alias)
 			}
 			if o.Key == it.Recommended {
 				left += r.st.noteWaiting.Render("  ★ recommended")
+			}
+			if o.Generated {
+				left += r.st.noteExternal.Render("  Generated")
+			}
+			on := strings.TrimSpace(s.OptNotes[it.N][o.Key])
+			if on == "" {
+				left += "  "
+				b.noteX[len(b.lines)] = ansi.StringWidth(left)
+				left += r.st.dim.Render(addNote)
 			}
 			add(t, row(left, r.badges(o), width))
 			if o.Summary != "" {
@@ -153,15 +189,35 @@ func (r *Renderer) renderDeck(f DeckFile, s DeckState, cur, width int) deckBody 
 			if o.Key == it.Recommended && it.Why != "" {
 				add(t, wrapLines("why: "+it.Why, "        ", "             ", r.st.dim, width)...)
 			}
+			if on != "" {
+				add(&deckTarget{item: i, opt: j, note: true}, wrapLines(on, "        ✎ ", "          ", lipgloss.NewStyle(), width)...)
+			}
 		}
-		add(&deckTarget{i, tgtNote}, r.noteLines(s.Notes[it.N], width)...)
+		other := &deckTarget{item: i, opt: tgtOther}
+		dot, st := "○", lipgloss.NewStyle()
+		if s.Choices[it.N] == otherKey {
+			dot, st = r.st.ok.Render("●"), r.st.ok.Bold(true)
+		}
+		add(other, fmt.Sprintf("   %s %s  %s", dot, st.Render("O"), st.Render("Other")))
+		switch ot := strings.TrimSpace(s.Other[it.N]); {
+		case ot != "":
+			add(other, wrapLines(ot, "        ", "        ", lipgloss.NewStyle(), width)...)
+		case s.Choices[it.N] == otherKey:
+			add(other, r.st.dim.Render(trunc("        describe what you want instead (click, or O)", width)))
+		}
+		sug := "   ✦ Suggest another option (g)"
+		if fc.thinking[it.N] {
+			sug = "   ✦ Thinking…"
+		}
+		add(&deckTarget{item: i, opt: tgtSuggest}, r.st.dim.Render(trunc(sug, width)))
+		add(&deckTarget{item: i, opt: tgtNote}, r.noteLines(s.Notes[it.N], width)...)
 	}
 	add(nil, "")
 	g := len(open)
 	b.itemLine[g] = len(b.lines)
 	mark, ts := focus(g)
-	add(&deckTarget{g, tgtHeader}, mark+ts.Render("General notes"))
-	add(&deckTarget{g, tgtNote}, r.noteLines(s.General, width)...)
+	add(&deckTarget{item: g, opt: tgtHeader}, mark+ts.Render("General notes"))
+	add(&deckTarget{item: g, opt: tgtNote}, r.noteLines(s.General, width)...)
 	return b
 }
 
@@ -225,7 +281,7 @@ func OnceDeck(s *Snapshot, id string, width int, now time.Time, o Options) (stri
 	}
 	for _, d := range s.Decks {
 		if d.Err == nil && (d.Deck.ID == id || strings.TrimSuffix(d.Name, ".json") == id) {
-			body := r.renderDeck(d, d.State, 0, max(20, width))
+			body := r.renderDeck(d, d.State, deckFocus{opt: -1}, max(20, width))
 			return f.Top + "\n" + strings.TrimRight(strings.Join(body.lines, "\n"), "\n") + "\n", nil
 		}
 	}

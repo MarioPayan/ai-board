@@ -17,7 +17,7 @@ Decided in earlier rounds
    • One watcher
    • Dies with the session & its board
    ↗ https://example.com/item-1
-   ● A  decisions/ in the board dir  ★ recommended           effort S · risk low
+   ● A  decisions/ in the board dir  ★ recommended  + note   effort S · risk low
         Next to sections/.
         + Same watcher
         − Not on the web
@@ -25,25 +25,36 @@ Decided in earlier rounds
    ○ B  Anywhere, path in board.json                        effort M · risk high
         + Shared decks
         − Stale paths
+        ✎ only if decks get shared
+   ○ O  Other
+   ✦ Suggest another option (g)
    ✎ keep it
      simple
 
   2. Ship the R key                                                         ✓ 2B
    R fills every open item with its recommendation.
-   ○ A  Approve  y
-   ● B  Reject  r
-   ○ C  Defer  f
+   ○ A  Approve  y  + note
+   ● B  Reject  r  + note
+   ○ C  Defer  f  + note
+   ○ O  Other
+   ✦ Suggest another option (g)
    ✎ add a note (click, or n)
 
   3. Note editor                                                            open
    Each item takes a free-text note.
-   ○ A  Inline text box  ★ recommended
+   ○ A  Inline text box  ★ recommended  + note
         + No context switch
         − Clumsy for long notes
         why: Notes are short.
-   ○ B  $EDITOR on a temp file
+   ○ B  $EDITOR on a temp file  + note
         + Full editor
         − Leaves the TUI
+   ○ C  Note in the header slot  Generated  + note           effort S · risk low
+        Show the note under the deck row.
+        + Always visible
+        − Crowds the slots
+   ○ O  Other
+   ✦ Suggest another option (g)
    ✎ add a note (click, or n)
 
   General notes

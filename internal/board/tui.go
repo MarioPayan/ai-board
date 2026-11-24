@@ -188,6 +188,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Tick(probeEvery, func(time.Time) tea.Msg { return probeTickMsg{} })
 	case probeTickMsg:
 		return m, m.probe()
+	case suggestMsg:
+		m.applySuggestion(msg)
+		m.layout()
+		return m, nil
 	case tea.MouseMsg:
 		switch {
 		case m.dv != nil:

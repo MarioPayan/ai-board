@@ -1,8 +1,8 @@
 package board
 
 import (
+	"context"
 	"fmt"
-	"maps"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -16,14 +16,36 @@ import (
 // deckView is the open deck: the deck as last read, the answers being
 // drafted (autosaved), the focused item and the note being edited.
 type deckView struct {
-	file    DeckFile
-	state   DeckState
-	cur     int
-	editing int // the item whose note is open (len(open) is the general note), -1 when none
-	ta      textarea.Model
-	confirm bool   // the footer asks `N open: send anyway? y/n`
-	status  string // the footer's first line, until the next key
-	body    deckBody
+	file     DeckFile
+	state    DeckState
+	cur      int
+	opt      int // the focused option of the focused item, -1 when none
+	editing  int // the item whose text box is open (len(open) is the general note), -1 when none
+	editWhat editKind
+	editKey  string // the option whose note is open, with editOptNote
+	ta       textarea.Model
+	confirm  bool         // the footer asks `N open: send anyway? y/n`
+	status   string       // the footer's first line, until the next key
+	thinking map[int]bool // items whose Suggest is running, by item number
+	body     deckBody
+}
+
+// editKind is what the open text box edits.
+type editKind int
+
+const (
+	editNote    editKind = iota // the item note, or the general note
+	editOther                   // the item's Other text
+	editOptNote                 // the note on option editKey
+)
+
+// suggestMsg is a finished Suggest for item n of the deck id at round.
+type suggestMsg struct {
+	id     string
+	round  int
+	n      int
+	option DeckOption
+	err    error
 }
 
 // sendW is the width of the Send button at the start of the last line,
@@ -72,7 +94,7 @@ func (m *model) openDeck(f DeckFile) tea.Cmd {
 	ta.SetHeight(3)
 	ta.Placeholder = "Type a note…"
 	ta.KeyMap.InsertNewline.SetKeys("alt+enter")
-	m.dv = &deckView{file: f, state: LoadDraft(m.draftPath(f)), editing: -1, ta: ta}
+	m.dv = &deckView{file: f, state: LoadDraft(m.draftPath(f)), opt: -1, editing: -1, ta: ta, thinking: map[int]bool{}}
 	m.picking = false
 	m.vp.GotoTop()
 	m.layout()
@@ -127,7 +149,9 @@ func (m *model) refreshDeck() {
 			m.dv.status = fmt.Sprintf("round %d", d.Deck.Round)
 		}
 		m.dv.file = d
-		m.dv.cur = min(m.dv.cur, len(d.Deck.OpenItems()))
+		if c := min(m.dv.cur, len(d.Deck.OpenItems())); c != m.dv.cur {
+			m.dv.cur, m.dv.opt = c, -1
+		}
 		return
 	}
 }
@@ -145,7 +169,7 @@ func (dv *deckView) footLines() int {
 
 func (m *model) deckLayout() {
 	dv := m.dv
-	dv.body = m.r.renderDeck(dv.file, dv.state, dv.cur, m.w)
+	dv.body = m.r.renderDeck(dv.file, dv.state, deckFocus{item: dv.cur, opt: dv.opt, thinking: dv.thinking}, m.w)
 	m.vp.Height = max(1, m.h-lipgloss.Height(m.top)-dv.footLines())
 	m.vp.SetContent(strings.Join(dv.body.lines, "\n"))
 	dv.ta.SetWidth(max(10, m.w-2))
@@ -159,14 +183,16 @@ func (m *model) saveDraft() {
 	}
 	for i := range m.snap.Decks {
 		if m.snap.Decks[i].Name == m.dv.file.Name {
-			m.snap.Decks[i].State = DeckState{Choices: maps.Clone(m.dv.state.Choices), Notes: maps.Clone(m.dv.state.Notes), General: m.dv.state.General}
+			m.snap.Decks[i].State = m.dv.state.clone()
 		}
 	}
 }
 
 func (m *model) focusItem(i int) {
 	dv := m.dv
-	dv.cur = max(0, min(i, len(dv.open())))
+	if c := max(0, min(i, len(dv.open()))); c != dv.cur {
+		dv.cur, dv.opt = c, -1
+	}
 	m.layout()
 	top := dv.body.itemLine[dv.cur]
 	if top < m.vp.YOffset || top > m.vp.YOffset+m.vp.Height-4 {
@@ -174,30 +200,108 @@ func (m *model) focusItem(i int) {
 	}
 }
 
+// setCur focuses open item i, keeping the option focus only when the item
+// does not change.
+func (dv *deckView) setCur(i int) {
+	if i != dv.cur {
+		dv.cur, dv.opt = i, -1
+	}
+}
+
 // pick sets option j of open item i, or clears it when it is the pick.
 func (m *model) pick(i, j int) {
 	open := m.dv.open()
-	if i >= len(open) || j < 0 || j >= len(open[i].OptionsList()) {
+	if i >= len(open) {
 		return
 	}
-	n, key := open[i].N, open[i].OptionsList()[j].Key
+	opts := OptionsFor(open[i], m.dv.state)
+	if j < 0 || j >= len(opts) {
+		return
+	}
+	n, key := open[i].N, opts[j].Key
 	if m.dv.state.Choices[n] == key {
 		delete(m.dv.state.Choices, n)
 	} else {
 		m.dv.state.Choices[n] = key
 	}
-	m.dv.cur = i
+	m.dv.setCur(i)
 	m.saveDraft()
 	m.layout()
 }
 
-func (m *model) editNote(i int) tea.Cmd {
+// pickOther answers open item i with Other and opens its text box.
+func (m *model) pickOther(i int) tea.Cmd {
 	dv := m.dv
-	dv.cur, dv.editing = i, i
-	if i < len(dv.open()) {
-		dv.ta.SetValue(dv.state.Notes[dv.open()[i].N])
-	} else {
+	if i >= len(dv.open()) {
+		return nil
+	}
+	dv.state.Choices[dv.open()[i].N] = otherKey
+	m.saveDraft()
+	return m.editText(i, editOther, "")
+}
+
+// moveOpt moves the option focus of the focused item by delta.
+func (m *model) moveOpt(delta int) {
+	dv := m.dv
+	open := dv.open()
+	if dv.cur >= len(open) {
+		return
+	}
+	n := len(OptionsFor(open[dv.cur], dv.state))
+	switch {
+	case n == 0:
+		return
+	case dv.opt < 0 && delta < 0:
+		dv.opt = n - 1
+	default:
+		dv.opt = max(0, min(n-1, dv.opt+delta))
+	}
+	m.layout()
+}
+
+// editOptNote opens the note on option j of open item i: the focused
+// option, else the picked one, else the first.
+func (m *model) editOptNote(i, j int) tea.Cmd {
+	dv := m.dv
+	open := dv.open()
+	if i >= len(open) {
+		return nil
+	}
+	opts := OptionsFor(open[i], dv.state)
+	if j < 0 {
+		j = 0
+		for k, o := range opts {
+			if o.Key == dv.state.Choices[open[i].N] {
+				j = k
+			}
+		}
+	}
+	if j >= len(opts) {
+		return nil
+	}
+	dv.setCur(i)
+	dv.opt = j
+	return m.editText(i, editOptNote, opts[j].Key)
+}
+
+func (m *model) editNote(i int) tea.Cmd { return m.editText(i, editNote, "") }
+
+// editText opens the text box on item i's note, Other text or the note on
+// option key (len(open) is the general note).
+func (m *model) editText(i int, what editKind, key string) tea.Cmd {
+	dv := m.dv
+	dv.setCur(i)
+	dv.editing, dv.editWhat, dv.editKey = i, what, key
+	open := dv.open()
+	switch {
+	case i >= len(open):
 		dv.ta.SetValue(dv.state.General)
+	case what == editOther:
+		dv.ta.SetValue(dv.state.Other[open[i].N])
+	case what == editOptNote:
+		dv.ta.SetValue(dv.state.OptNotes[open[i].N][key])
+	default:
+		dv.ta.SetValue(dv.state.Notes[open[i].N])
 	}
 	dv.ta.CursorEnd()
 	m.layout()
@@ -207,17 +311,87 @@ func (m *model) editNote(i int) tea.Cmd {
 func (m *model) saveNote() {
 	dv := m.dv
 	v := strings.TrimSpace(dv.ta.Value())
-	if dv.editing < len(dv.open()) {
-		n := dv.open()[dv.editing].N
-		if v == "" {
-			delete(dv.state.Notes, n)
-		} else {
-			dv.state.Notes[n] = v
-		}
-	} else {
+	open := dv.open()
+	switch {
+	case dv.editing >= len(open):
 		dv.state.General = v
+	case dv.editWhat == editOther:
+		dv.state.setOther(open[dv.editing].N, v)
+	case dv.editWhat == editOptNote:
+		dv.state.setOptNote(open[dv.editing].N, dv.editKey, v)
+	case v == "":
+		delete(dv.state.Notes, open[dv.editing].N)
+	default:
+		dv.state.Notes[open[dv.editing].N] = v
 	}
 	m.saveDraft()
+}
+
+// suggest asks Claude, off the UI goroutine, for one new option for open
+// item i. The answer arrives as a suggestMsg.
+func (m *model) suggest(i int) tea.Cmd {
+	dv := m.dv
+	open := dv.open()
+	if i >= len(open) || dv.thinking[open[i].N] {
+		return nil
+	}
+	it, d := open[i], dv.file.Deck
+	dv.setCur(i)
+	dv.thinking[it.N] = true
+	dv.status = m.r.st.dim.Render("Thinking…")
+	m.layout()
+	prompt := suggestPrompt(&d, it, dv.state)
+	return func() tea.Msg {
+		o, err := suggestOption(context.Background(), prompt)
+		return suggestMsg{id: d.ID, round: d.Round, n: it.N, option: o, err: err}
+	}
+}
+
+// applySuggestion adds a generated option to its item under the next key,
+// in the open view when it shows that deck and round, else in the draft
+// file of that round.
+func (m *model) applySuggestion(msg suggestMsg) {
+	dv := m.dv
+	here := dv != nil && dv.file.Deck.ID == msg.id && dv.file.Deck.Round == msg.round
+	if here {
+		delete(dv.thinking, msg.n)
+	}
+	var it DeckItem
+	var f *DeckFile
+	for i := range m.snap.Decks {
+		d := &m.snap.Decks[i]
+		if d.Err == nil && d.Deck.ID == msg.id && d.Deck.Round == msg.round {
+			f = d
+			for _, x := range d.Deck.OpenItems() {
+				if x.N == msg.n {
+					it = x
+				}
+			}
+		}
+	}
+	if f == nil || it.N == 0 {
+		return // the deck or the round is gone
+	}
+	if msg.err != nil {
+		if here {
+			dv.status = m.r.st.err.Render(suggestFailText(msg.err))
+		}
+		return
+	}
+	if here {
+		msg.option.Key = NextKey(it, dv.state)
+		dv.state.addExtra(it.N, msg.option)
+		m.saveDraft()
+		dv.status = m.r.st.ok.Render(fmt.Sprintf("✓ %d%s generated: %s", it.N, msg.option.Key, msg.option.Title))
+		return
+	}
+	path := AnswerBase(m.dir, msg.id, msg.round) + ".draft.json"
+	s := LoadDraft(path)
+	msg.option.Key = NextKey(it, s)
+	s.addExtra(it.N, msg.option)
+	if SaveDraft(path, s) == nil {
+		f.State = s
+	}
 }
 
 // send writes the answers file, copies the text and says so in the footer.
@@ -250,7 +424,7 @@ func (m *model) nextOpen() {
 	open := m.dv.open()
 	for k := 1; k <= len(open); k++ {
 		i := (m.dv.cur + k) % len(open)
-		if _, ok := open[i].option(m.dv.state.Choices[open[i].N]); !ok {
+		if !picked(open[i], m.dv.state) {
 			m.focusItem(i)
 			return
 		}
@@ -342,6 +516,16 @@ func (m *model) deckKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "n":
 		return m, m.editNote(dv.cur)
+	case "e":
+		return m, m.editOptNote(dv.cur, dv.opt)
+	case "O":
+		return m, m.pickOther(dv.cur)
+	case "g":
+		return m, m.suggest(dv.cur)
+	case "left":
+		m.moveOpt(-1)
+	case "right":
+		m.moveOpt(1)
 	case "N":
 		return m, m.editNote(len(open))
 	case "R":
@@ -393,28 +577,42 @@ func (m *model) deckMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	if y < 0 || y >= m.vp.Height {
 		return m, nil
 	}
-	t, ok := dv.body.targets[m.vp.YOffset+y]
+	line := m.vp.YOffset + y
+	t, ok := dv.body.targets[line]
 	if !ok {
 		return m, nil
 	}
 	dv.status = ""
-	switch t.opt {
-	case tgtHeader:
-		dv.cur = t.item
+	if x, ok := dv.body.noteX[line]; ok && msg.X >= x && msg.X < x+len(addNote) {
+		t.note = true
+	}
+	switch {
+	case t.note:
+		return m, m.editOptNote(t.item, t.opt)
+	case t.opt == tgtHeader:
+		dv.setCur(t.item)
 		m.layout()
-	case tgtNote:
+	case t.opt == tgtNote:
 		return m, m.editNote(t.item)
-	case tgtURL:
-		dv.cur = t.item
+	case t.opt == tgtOther:
+		return m, m.pickOther(t.item)
+	case t.opt == tgtSuggest:
+		return m, m.suggest(t.item)
+	case t.opt == tgtURL:
+		dv.setCur(t.item)
 		m.openFocusedURL()
 		m.layout()
 	default:
 		m.pick(t.item, t.opt)
+		dv.opt = t.opt
+		m.layout()
 	}
 	return m, nil
 }
 
-const deckKeys = "  j/k item  a-d pick  x clear  n note  N general  R rec  u open  o url  esc back"
+// deckKeys follows the Send button; with it the line is 79 cells, so it
+// fits 80 columns. The help lists every deck key, u and o included.
+const deckKeys = "  j/k ←/→ move  a-d pick  O other  x clear  n e N note  g gen  R rec  esc"
 
 // deckFooter is two lines: the status (or the send prompt), then the Send
 // button and the keys; six while a note is open: a rule, the note's name,
@@ -425,7 +623,16 @@ func (m *model) deckFooter() string {
 	if dv.editing >= 0 {
 		name := "General notes"
 		if open := dv.open(); dv.editing < len(open) {
-			name = fmt.Sprintf("Note on %d. %s", open[dv.editing].N, open[dv.editing].Title)
+			it := open[dv.editing]
+			switch dv.editWhat {
+			case editOther:
+				name = fmt.Sprintf("Other for %d. %s", it.N, it.Title)
+			case editOptNote:
+				o, _ := optionFor(it, dv.state, dv.editKey)
+				name = fmt.Sprintf("Note on %d%s. %s", it.N, o.Key, o.Title)
+			default:
+				name = fmt.Sprintf("Note on %d. %s", it.N, it.Title)
+			}
 		}
 		return st.rule.Render(strings.Repeat("─", m.w)) + "\n" + st.bold.Render(trunc(name, m.w)) + "\n" +
 			dv.ta.View() + "\n" + st.dim.Render(trunc("enter save · alt+enter newline · esc cancel", m.w))
