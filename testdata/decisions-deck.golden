@@ -4,14 +4,11 @@
 💬  Deck: Footer wording             Claude: action plan coming
 
 ────────────────────────────────────────────────────────────────────────────────
-🧭 Panel build choices ─────────────────────────────────────────────────────────
-ai-board · round 1 · 2/3 answered · ↗ link (o)
+Deck: Panel build choices · 1/3                                     2/3 answered
+ai-board · round 1 · ↗ link (o)
 Three choices left before the panel ships.
 
-Decided in earlier rounds
-✓ 4A — Deck key: D opens the deck view (recommended)
-
-▸ 1. Where deck files live                                                  ✓ 1A
+1. Where deck files live                                                    ✓ 1A
    The panel needs to find the session's decks.
    The board directory is already watched.
    • One watcher
@@ -30,32 +27,4 @@ Decided in earlier rounds
    ✦ Suggest another option (g)
    ✎ keep it
      simple
-
-  2. Ship the R key                                                         ✓ 2B
-   R fills every open item with its recommendation.
-   ○ A  Approve  y  + note
-   ● B  Reject  r  + note
-   ○ C  Defer  f  + note
-   ○ O  Other
-   ✦ Suggest another option (g)
-   ✎ add a note (click, or n)
-
-  3. Note editor                                                            open
-   Each item takes a free-text note.
-   ○ A  Inline text box  ★ recommended  + note
-        + No context switch
-        − Clumsy for long notes
-        why: Notes are short.
-   ○ B  $EDITOR on a temp file  + note
-        + Full editor
-        − Leaves the TUI
-   ○ C  Note in the header slot  Generated  + note           effort S · risk low
-        Show the note under the deck row.
-        + Always visible
-        − Crowds the slots
-   ○ O  Other
-   ✦ Suggest another option (g)
-   ✎ add a note (click, or n)
-
-  General notes
-   ✎ add a note (click, or n)
+[‹ Back]                                                                [Next ›]

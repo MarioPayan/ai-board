@@ -7,19 +7,21 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 )
 
 // deckView is the open deck: the deck as last read, the answers being
-// drafted (autosaved), the focused item and the note being edited.
+// drafted (autosaved), the decision on screen and the note being edited.
 type deckView struct {
 	file     DeckFile
 	state    DeckState
-	cur      int
-	opt      int // the focused option of the focused item, -1 when none
+	cur      int // the decision on screen, an index into the open items; len(open) is the review
+	opt      int // the focused option of the decision, -1 when none
 	editing  int // the item whose text box is open (len(open) is the general note), -1 when none
 	editWhat editKind
 	editKey  string // the option whose note is open, with editOptNote
@@ -28,7 +30,16 @@ type deckView struct {
 	status   string       // the footer's first line, until the next key
 	thinking map[int]bool // items whose Suggest is running, by item number
 	body     deckBody
+	vp       viewport.Model // the page between the counter and the nav line
+	split    bool           // the board body shows above the deck region
+	navY     int            // the screen row of the nav line
+	backW    int            // the widths of the Back and Next buttons on it
+	nextW    int
 }
+
+// splitMin is the smallest body, in rows, that the deck shares with the
+// board: below it the deck region takes the whole body.
+const splitMin = 20
 
 // editKind is what the open text box edits.
 type editKind int
@@ -94,7 +105,10 @@ func (m *model) openDeck(f DeckFile) tea.Cmd {
 	ta.SetHeight(3)
 	ta.Placeholder = "Type a note…"
 	ta.KeyMap.InsertNewline.SetKeys("alt+enter")
-	m.dv = &deckView{file: f, state: LoadDraft(m.draftPath(f)), opt: -1, editing: -1, ta: ta, thinking: map[int]bool{}}
+	vp := viewport.New(80, 10)
+	vp.KeyMap.Left = key.NewBinding(key.WithDisabled())
+	vp.KeyMap.Right = key.NewBinding(key.WithDisabled())
+	m.dv = &deckView{file: f, state: LoadDraft(m.draftPath(f)), opt: -1, editing: -1, ta: ta, thinking: map[int]bool{}, vp: vp}
 	m.picking = false
 	m.vp.GotoTop()
 	m.layout()
@@ -167,12 +181,42 @@ func (dv *deckView) footLines() int {
 	return 2
 }
 
-func (m *model) deckLayout() {
+// deckLayout sizes the deck view. The body under the fixed area holds the
+// board (m.vp, a third of it) above a rule and the deck region, or, when
+// the body is shorter than splitMin, only the deck region: the counter
+// line, the page (dv.vp) and the nav line. An open text box takes its rows
+// from the page, so the split does not change while typing.
+func (m *model) deckLayout(board string) {
 	dv := m.dv
 	dv.body = m.r.renderDeck(dv.file, dv.state, deckFocus{item: dv.cur, opt: dv.opt, thinking: dv.thinking}, m.w)
-	m.vp.Height = max(1, m.h-lipgloss.Height(m.top)-dv.footLines())
-	m.vp.SetContent(strings.Join(dv.body.lines, "\n"))
+	top := lipgloss.Height(m.top)
+	h := m.h - top - 2
+	dv.split = h >= splitMin
+	region, regionY := h, top
+	if dv.split {
+		m.vp.Height = h / 3
+		m.vp.SetContent(board)
+		region, regionY = h-m.vp.Height-1, top+m.vp.Height+1
+	}
+	dv.vp.Width = m.w
+	dv.vp.Height = max(1, region-2-(dv.footLines()-2))
+	dv.vp.SetContent(strings.Join(dv.body.lines, "\n"))
+	dv.navY = regionY + 1 + dv.vp.Height
+	_, dv.backW, dv.nextW = m.r.deckNav(dv.cur, len(dv.open()), m.w)
 	dv.ta.SetWidth(max(10, m.w-2))
+}
+
+// deckRegion is the deck view below the fixed area: the board and a rule
+// when split, the counter, the page, the nav line and the footer.
+func (m *model) deckRegion() string {
+	dv := m.dv
+	var b strings.Builder
+	if dv.split {
+		b.WriteString(m.vp.View() + "\n" + m.r.st.rule.Render(strings.Repeat("─", m.w)) + "\n")
+	}
+	nav, _, _ := m.r.deckNav(dv.cur, len(dv.open()), m.w)
+	b.WriteString(m.r.deckCounter(dv.file, dv.state, dv.cur, m.w) + "\n" + dv.vp.View() + "\n" + nav + "\n" + m.deckFooter())
+	return b.String()
 }
 
 // saveDraft writes the draft and hands it to the snapshot, so the header
@@ -188,16 +232,24 @@ func (m *model) saveDraft() {
 	}
 }
 
-func (m *model) focusItem(i int) {
+// goPage shows decision i (len(open) is the review) from its top.
+func (m *model) goPage(i int) {
 	dv := m.dv
 	if c := max(0, min(i, len(dv.open()))); c != dv.cur {
 		dv.cur, dv.opt = c, -1
+		dv.vp.GotoTop()
 	}
 	m.layout()
-	top := dv.body.itemLine[dv.cur]
-	if top < m.vp.YOffset || top > m.vp.YOffset+m.vp.Height-4 {
-		m.vp.SetYOffset(top)
+}
+
+// next goes to the next decision, from the last one to the review, and
+// on the review sends.
+func (m *model) next() {
+	if m.dv.cur >= len(m.dv.open()) {
+		m.trySend()
+		return
 	}
+	m.goPage(m.dv.cur + 1)
 }
 
 // setCur focuses open item i, keeping the option focus only when the item
@@ -240,7 +292,7 @@ func (m *model) pickOther(i int) tea.Cmd {
 	return m.editText(i, editOther, "")
 }
 
-// moveOpt moves the option focus of the focused item by delta.
+// moveOpt moves the option focus of the decision on screen by delta.
 func (m *model) moveOpt(delta int) {
 	dv := m.dv
 	open := dv.open()
@@ -419,13 +471,13 @@ func (m *model) trySend() {
 	m.send()
 }
 
-// nextOpen focuses the next item without a pick after the focused one.
+// nextOpen goes to the next decision without a pick after this one.
 func (m *model) nextOpen() {
 	open := m.dv.open()
 	for k := 1; k <= len(open); k++ {
 		i := (m.dv.cur + k) % len(open)
 		if !picked(open[i], m.dv.state) {
-			m.focusItem(i)
+			m.goPage(i)
 			return
 		}
 	}
@@ -504,10 +556,18 @@ func (m *model) deckKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "esc", "D":
 		return m, m.closeDeck()
-	case "j", "down", "tab":
-		m.focusItem(dv.cur + 1)
-	case "k", "up", "shift+tab":
-		m.focusItem(dv.cur - 1)
+	case "enter", "tab":
+		m.next()
+	case "backspace", "shift+tab":
+		m.goPage(dv.cur - 1)
+	case "j", "down":
+		dv.vp.ScrollDown(1)
+	case "k", "up":
+		dv.vp.ScrollUp(1)
+	case "pgdown":
+		dv.vp.PageDown()
+	case "pgup":
+		dv.vp.PageUp()
 	case "x":
 		if dv.cur < len(open) {
 			delete(dv.state.Choices, open[dv.cur].N)
@@ -543,15 +603,8 @@ func (m *model) deckKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if dv.cur < len(open) {
 			if j, ok := pickKey(k, open[dv.cur]); ok {
 				m.pick(dv.cur, j)
-				return m, nil
 			}
 		}
-		if k != "pgup" && k != "pgdown" {
-			return m, nil // the viewport's letter keys (b, d, f, u, space) would scroll
-		}
-		var cmd tea.Cmd
-		m.vp, cmd = m.vp.Update(msg)
-		return m, cmd
 	}
 	return m, nil
 }
@@ -560,7 +613,11 @@ func (m *model) deckMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	dv := m.dv
 	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
 		var cmd tea.Cmd
-		m.vp, cmd = m.vp.Update(msg) // wheel
+		if dv.split && msg.Y < lipgloss.Height(m.top)+m.vp.Height { // the wheel over the board
+			m.vp, cmd = m.vp.Update(msg)
+		} else {
+			dv.vp, cmd = dv.vp.Update(msg)
+		}
 		return m, cmd
 	}
 	if dv.editing >= 0 {
@@ -573,11 +630,22 @@ func (m *model) deckMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		m.trySend()
 		return m, nil
 	}
-	y := msg.Y - lipgloss.Height(m.top)
-	if y < 0 || y >= m.vp.Height {
+	if msg.Y == dv.navY {
+		switch {
+		case msg.X < dv.backW:
+			dv.status = ""
+			m.goPage(dv.cur - 1)
+		case msg.X >= m.w-dv.nextW:
+			dv.status = ""
+			m.next()
+		}
 		return m, nil
 	}
-	line := m.vp.YOffset + y
+	y := msg.Y - (dv.navY - dv.vp.Height)
+	if y < 0 || y >= dv.vp.Height {
+		return m, nil
+	}
+	line := dv.vp.YOffset + y
 	t, ok := dv.body.targets[line]
 	if !ok {
 		return m, nil
@@ -590,8 +658,8 @@ func (m *model) deckMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	case t.note:
 		return m, m.editOptNote(t.item, t.opt)
 	case t.opt == tgtHeader:
-		dv.setCur(t.item)
-		m.layout()
+	case t.opt == tgtGo:
+		m.goPage(t.item)
 	case t.opt == tgtNote:
 		return m, m.editNote(t.item)
 	case t.opt == tgtOther:
@@ -610,9 +678,9 @@ func (m *model) deckMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// deckKeys follows the Send button; with it the line is 79 cells, so it
-// fits 80 columns. The help lists every deck key, u and o included.
-const deckKeys = "  j/k ←/→ move  a-d pick  O other  x clear  n e N note  g gen  R rec  esc"
+// deckKeys follows the Send button; with it the line fits 80 columns
+// (TestDeckFooterFits80). The help lists every deck key.
+const deckKeys = "  ⏎ next ⌫ back  j/k scroll  a-d pick  O other  n N note  R rec  esc"
 
 // deckFooter is two lines: the status (or the send prompt), then the Send
 // button and the keys; six while a note is open: a rule, the note's name,
@@ -642,6 +710,8 @@ func (m *model) deckFooter() string {
 	switch {
 	case dv.confirm:
 		status = st.noteWaiting.Render(fmt.Sprintf("%d open: send anyway? y/n", total-done))
+	case status == "" && dv.cur >= len(dv.open()):
+		status = st.dim.Render("click a row to answer it again, ⏎ sends")
 	case status == "":
 		status = st.dim.Render("click an option to pick it, ✎ to write a note")
 	}

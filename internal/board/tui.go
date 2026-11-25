@@ -141,7 +141,7 @@ func (m *model) layout() {
 	m.vp.Width = m.w
 	if m.dv != nil {
 		m.anchors = nil
-		m.deckLayout()
+		m.deckLayout(f.Body)
 		return
 	}
 	body := f.Body
@@ -275,10 +275,11 @@ func (m *model) View() string {
 	if strings.TrimSpace(m.vp.View()) == "" && m.snap.Missing {
 		return m.top
 	}
+	if m.dv != nil {
+		return m.top + "\n" + m.deckRegion()
+	}
 	v := m.top + "\n" + m.vp.View() + "\n"
 	switch {
-	case m.dv != nil:
-		return v + m.deckFooter()
 	case m.picking:
 		return v + m.r.st.dim.Render(trunc("j/k move · enter or click open · esc back", m.w))
 	}

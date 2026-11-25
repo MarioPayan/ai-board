@@ -180,9 +180,25 @@ func deckPress(m *model, keys ...string) {
 			msg = tea.KeyMsg{Type: tea.KeyEnter}
 		case "esc":
 			msg = tea.KeyMsg{Type: tea.KeyEsc}
+		case "tab":
+			msg = tea.KeyMsg{Type: tea.KeyTab}
+		case "shift+tab":
+			msg = tea.KeyMsg{Type: tea.KeyShiftTab}
+		case "backspace":
+			msg = tea.KeyMsg{Type: tea.KeyBackspace}
+		case "down":
+			msg = tea.KeyMsg{Type: tea.KeyDown}
 		}
 		m.Update(msg)
 	}
+}
+
+// clickLine clicks column x of line of the page on screen, scrolling the
+// page so the line is visible first.
+func clickLine(m *model, line, x int) {
+	dv := m.dv
+	dv.vp.SetYOffset(line)
+	m.Update(tea.MouseMsg{X: x, Y: dv.navY - dv.vp.Height + line - dv.vp.YOffset, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
 }
 
 func lastLines(m *model, n int) string {
@@ -215,11 +231,11 @@ func TestDeckViewKeys(t *testing.T) {
 		t.Errorf("u focused item %d, want index 2", m.dv.cur)
 	}
 	deckPress(m, "x") // nothing to clear on item 3; then clear item 1 and refill with R
-	deckPress(m, "k", "k", "x")
+	deckPress(m, "backspace", "shift+tab", "x")
 	if _, ok := m.dv.state.Choices[1]; ok {
 		t.Error("x should clear item 1")
 	}
-	deckPress(m, "j", "b", "R") // item 2: Approve→Reject is already B; b again clears it
+	deckPress(m, "tab", "b", "R") // item 2: Approve→Reject is already B; b again clears it
 	if m.dv.state.Choices[1] != "A" || m.dv.state.Choices[3] != "A" {
 		t.Errorf("R should fill items 1 and 3 with A: %v", m.dv.state.Choices)
 	}
@@ -282,10 +298,10 @@ func TestDeckViewMouse(t *testing.T) {
 	m.openDeck(m.snap.Decks[0])
 	click := func(target deckTarget) {
 		t.Helper()
+		m.goPage(target.item)
 		for line, tg := range m.dv.body.targets {
 			if tg == target {
-				m.vp.SetYOffset(line)
-				m.Update(tea.MouseMsg{X: 5, Y: 6 + line - m.vp.YOffset, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+				clickLine(m, line, 5)
 				return
 			}
 		}

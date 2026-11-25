@@ -123,21 +123,34 @@ func fakeClaude(t *testing.T, reply string, err error) *[]string {
 	return &prompts
 }
 
-// deckText is the whole deck view body, not only the lines on screen.
+// deckText is the whole page on screen, not only the lines that fit.
 func deckText(m *model) string { return ansi.Strip(strings.Join(m.dv.body.lines, "\n")) }
+
+// pageText is page i of the open deck, as goPage(i) would show it.
+func pageText(m *model, i int) string {
+	dv := m.dv
+	b := m.r.renderDeck(dv.file, dv.state, deckFocus{item: i, opt: -1, thinking: dv.thinking}, m.w)
+	return ansi.Strip(strings.Join(b.lines, "\n"))
+}
 
 func TestDeckViewOtherOptionNoteSuggest(t *testing.T) {
 	m, copied := deckModel(t)
 	m.openDeck(m.snap.Decks[0])
-	v := deckText(m)
-	for _, want := range []string{"○ O  Other", "✦ Suggest another option (g)", "○ C  Note in the header slot  Generated  + note", "✎ only if decks get shared"} {
-		if !strings.Contains(v, want) {
-			t.Errorf("deck view lacks %q:\n%s", want, v)
+	for i, wants := range [][]string{
+		{"○ O  Other", "✦ Suggest another option (g)", "✎ only if decks get shared"},
+		{"○ O  Other", "✦ Suggest another option (g)"},
+		{"○ O  Other", "✦ Suggest another option (g)", "○ C  Note in the header slot  Generated  + note"},
+	} {
+		v := pageText(m, i)
+		for _, want := range wants {
+			if !strings.Contains(v, want) {
+				t.Errorf("decision %d lacks %q:\n%s", i+1, want, v)
+			}
 		}
 	}
 
 	// Other on item 2: O picks it and opens the box; enter saves the text.
-	deckPress(m, "j", "O")
+	deckPress(m, "tab", "O")
 	if m.dv.state.Choices[2] != "other" || m.dv.editing != 1 || m.dv.editWhat != editOther {
 		t.Fatalf("O should pick Other on item 2 and open its box: %#v editing %d", m.dv.state.Choices, m.dv.editing)
 	}
@@ -163,7 +176,7 @@ func TestDeckViewOtherOptionNoteSuggest(t *testing.T) {
 
 	// Suggest on item 3: Thinking… until the reply arrives, then option D.
 	prompts := fakeClaude(t, `{"title": "Popup editor", "summary": "A modal box.", "pros": ["Roomy"], "cons": ["Modal"], "effort": "M", "risk": "med"}`, nil)
-	deckPress(m, "j")
+	deckPress(m, "tab")
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
 	if cmd == nil || !strings.Contains(deckText(m), "✦ Thinking…") {
 		t.Fatalf("g should start Suggest and show Thinking…:\n%s", deckText(m))
@@ -211,10 +224,10 @@ func TestDeckViewMouseOtherNoteSuggest(t *testing.T) {
 	m.openDeck(m.snap.Decks[0])
 	clickAt := func(target deckTarget, x func(line int) int) {
 		t.Helper()
+		m.goPage(target.item)
 		for line := range len(m.dv.body.lines) {
 			if tg, ok := m.dv.body.targets[line]; ok && tg == target {
-				m.vp.SetYOffset(line)
-				m.Update(tea.MouseMsg{X: x(line), Y: 6 + line - m.vp.YOffset, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+				clickLine(m, line, x(line))
 				return
 			}
 		}
@@ -250,7 +263,7 @@ func TestSuggestionAfterLeavingTheDeck(t *testing.T) {
 	m, _ := deckModel(t)
 	m.openDeck(m.snap.Decks[0])
 	fakeClaude(t, `{"title": "Later"}`, nil)
-	deckPress(m, "j", "j")
+	deckPress(m, "tab", "tab")
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
 	deckPress(m, "esc")
 	m.Update(cmd())
