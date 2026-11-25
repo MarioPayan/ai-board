@@ -56,11 +56,13 @@ Needs Go 1.26 or newer; the binary lands in `$(go env GOPATH)/bin`, which must b
 
 ## Answering a decision
 
-![The deck view of a deck called Export format: item 1, the date format in the CSV, has option A, ISO 8601, picked and marked recommended with its pros, cons and the reason; option B carries a note; then Other and Suggest another option. Item 2, an approve, reject or defer question about streaming large exports, is still open. The Send button and the deck keys run along the bottom](docs/images/deck.svg)
+![The deck view under the board's plan, at decision 1 of 2 of a deck called Export format: the date format in the CSV, with option A, ISO 8601, picked and marked recommended with its pros, cons and the reason, and option B carrying a note. Back and Next buttons close the deck region; the Send button and the deck keys run along the bottom](docs/images/deck.svg)
 
 Claude writes a deck to `decisions/<id>.json` and runs `ai-board answers wait <id>` in the
-background. You press `D`, pick with `a`-`d`, write notes, and send with `s`. The answers
-reach the session as text; every change autosaves, so quitting loses nothing.
+background. You press `D` and the deck opens under the board, one decision at a time: pick
+with `a`-`d`, write notes, press `enter` for the next one, and send from the review at the end
+(or with `s` from any decision). The answers reach the session as text; every change
+autosaves, so quitting loses nothing.
 
 ## More
 

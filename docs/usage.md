@@ -83,21 +83,23 @@ The six-line header (title, status with counts, three slots for what needs atten
 
 ## Decision decks
 
-A deck is `decisions/<id>.json`, a list of items with options, pros, cons and a recommendation. `D` opens it. You pick, write notes and send; the viewer writes the answers to `answers/<id>-r<round>.txt` and copies them to the clipboard (OSC 52, and `wl-copy` when it is installed). A session that ran `ai-board answers wait <id>` in the background wakes up with the answers. Every change autosaves to a draft, so quitting loses nothing, and a one-line `answers/<id>-r<round>.ack` from Claude shows as `Claude: <ack>`.
+A deck is `decisions/<id>.json`, a list of items with options, pros, cons and a recommendation. `D` opens it in the lower two thirds of the body, under the board (the whole body when the pane is short), one decision at a time: `Deck: <title> · <current>/<total>` on top, Back and Next at the bottom, and after the last decision a review of every pick with the general note and Send. You pick, write notes and send; the viewer writes the answers to `answers/<id>-r<round>.txt` and copies them to the clipboard (OSC 52, and `wl-copy` when it is installed). A session that ran `ai-board answers wait <id>` in the background wakes up with the answers. Every change autosaves to a draft, so quitting loses nothing, and a one-line `answers/<id>-r<round>.ack` from Claude shows as `Claude: <ack>`.
 
 | Key | Does |
 |---|---|
-| `j` `k` `tab` | move between items |
+| `enter` `tab` | next decision; after the last one the review, where `enter` sends |
+| `backspace` `shift+tab` | previous decision |
+| `j` `k` `pgup` `pgdn` | scroll the decision (the wheel too) |
 | `a`-`d`, `1`-`9` | pick that option; the same key again, or `x`, clears it |
 | `y` `r` `f` | approve, reject or defer a confirm item |
 | `O` | answer with Other and write what you want instead |
 | `←` `→`, then `e` | focus an option and write a note on it, picked or not |
 | `g` | Suggest: ask `claude -p` for one more option |
 | `R` | fill every open item with its recommendation, never replacing a pick |
-| `u` | jump to the next unanswered item |
-| `n` `N` | the item note, the general note (enter saves, alt+enter newline, esc cancels) |
+| `u` | jump to the next unanswered decision |
+| `n` `N` | the item note, the general note (in the box enter saves, alt+enter newline, esc cancels) |
 | `o` | open the item's or the deck's link |
 | `s` | send (asks first when items are still open) |
 | `esc` `D` | back to the board |
 
-Clicks work too: an option picks it, `+ note` writes a note, `✦ Suggest another option` asks for one, `[Send]` sends.
+Picking never moves on by itself. Clicks work too: an option picks it, `+ note` writes a note, `✦ Suggest another option` asks for one, Back and Next move, a review row goes back to that decision, `[Send]` sends.

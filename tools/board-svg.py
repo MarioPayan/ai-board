@@ -126,13 +126,24 @@ def shoot(binary, work, cols, rows, keys, once_args):
     raise SystemExit("could not capture inside one minute")
 
 
-def check(name, screen, once, footer=1):
-    """Refuse a frame whose text is not the renderer's `--once` text."""
+def check(name, screen, once, footer=1, deck=False):
+    """Refuse a frame whose text is not the renderer's `--once` text.
+
+    With deck, `--once --deck` holds the fixed area and then the deck region
+    from its counter line; the live viewer has the board's body and a rule
+    between the two, so the region is compared from the live counter row on.
+    """
     live = [screen.text(r) for r in range(screen.rows)]
+    pairs = [(i, i) for i in range(screen.rows - footer)]
+    if deck:
+        at = next((r for r in range(6, screen.rows) if live[r].startswith("Deck: ")), None)
+        if at is None:
+            raise SystemExit(f"{name}: no `Deck: ` counter row in the live frame")
+        pairs = [(i, i) for i in range(6)] + [(r, 6 + r - at) for r in range(at, screen.rows - footer)]
     bad = [
-        f"  row {i}: live {live[i]!r}\n         once {once[i].rstrip()!r}"
-        for i in range(min(len(once), screen.rows - footer))
-        if live[i] != once[i].rstrip()
+        f"  row {i}: live {live[i]!r}\n         once {once[j].rstrip()!r}"
+        for i, j in pairs
+        if j < len(once) and live[i] != once[j].rstrip()
     ]
     if bad:
         raise SystemExit(f"{name}: live frame differs from --once\n" + "\n".join(bad))
@@ -332,7 +343,7 @@ def main():
             # name, cols, rows, keys, --once args, footer lines
             ("console", 100, 30, "", [], 1),
             ("board", 100, full + 2, "g", [], 2),  # every block, the legend line and the footer
-            ("deck", 100, 34, "D", ["--deck", "export-format"], 2),
+            ("deck", 100, 34, "D", ["--deck", "export-format"], 3),  # the nav line and the footer
         ]
         screens = {}
         for name, cols, rows, keys, args, footer in shots:
@@ -340,7 +351,7 @@ def main():
             if dump:
                 print(f"── {name} {cols}x{rows} {screen.title!r}")
                 print("\n".join(screen.text(r) for r in range(rows)))
-            check(name, screen, once, footer)
+            check(name, screen, once, footer, deck=name == "deck")
             screens[name] = screen
 
     srv.shutdown()
@@ -355,10 +366,10 @@ def main():
             "line with progress and counts, three slots for what needs you, then the Plan, PRs, "
             "Running, Details and Log blocks, the legend of plan markers and the footer of keys."),
         "deck.svg": window(screens["deck"],
-            "The deck view: a decision deck titled Export format with two items. The first has "
-            "option A picked and marked recommended with its pros, cons and why, option B with a "
-            "note on it, Other and Suggest another option; the second is an approve, reject or "
-            "defer item still open."),
+            "The deck view under the board's plan: decision 1 of 2 of a deck titled Export format, "
+            "with option A picked and marked recommended with its pros, cons and why, option B with "
+            "a note on it, Other and Suggest another option, then the Back and Next buttons, the "
+            "Send button and the deck keys."),
     }
     for fname, text in files.items():
         (OUT / fname).write_text(text)
