@@ -1,0 +1,1 @@
+{ "type": "bar", "unit": "s", "series": [ { "label": "1k rows", "value": 0.4 }, { "label": "10k rows", "value": 3.1 }, { "label": "100k rows", "value": 29 } ] }

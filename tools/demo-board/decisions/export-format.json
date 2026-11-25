@@ -1,0 +1,26 @@
+{
+  "id": "export-format",
+  "title": "Export format",
+  "project": "acme/shop",
+  "round": 1,
+  "intro": "Two choices before the export ships.",
+  "items": [
+    {
+      "n": 1,
+      "title": "Date format in the CSV",
+      "summary": "Order dates go out as one text column.",
+      "options": [
+        { "key": "A", "title": "ISO 8601", "summary": "2026-11-20T12:10:00Z", "pros": ["Sorts as text", "Every tool parses it"], "cons": ["Less readable"], "effort": "S", "risk": "low" },
+        { "key": "B", "title": "The shop's locale", "summary": "20/11/2026 12:10", "pros": ["Reads naturally"], "cons": ["Ambiguous across locales"], "effort": "M", "risk": "med" }
+      ],
+      "recommended": "A",
+      "why": "Spreadsheets and scripts both read it without guessing."
+    },
+    {
+      "n": 2,
+      "kind": "confirm",
+      "title": "Stream exports over 10k rows",
+      "summary": "Large exports download as they are written instead of timing out."
+    }
+  ]
+}

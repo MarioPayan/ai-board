@@ -1,0 +1,23 @@
+{
+  "title": "CSV export for orders",
+  "status": { "state": "waiting", "text": "Waiting on your pick" },
+  "steps": [
+    { "text": "Read the orders API", "state": "done", "started": "2026-11-20T11:00:00-05:00", "ended": "2026-11-20T11:08:00-05:00" },
+    { "text": "Write the export spec", "state": "done", "started": "2026-11-20T11:08:00-05:00", "ended": "2026-11-20T11:20:00-05:00" },
+    { "text": "Add the CSV writer", "state": "done", "started": "2026-11-20T11:20:00-05:00", "ended": "2026-11-20T11:55:00-05:00" },
+    { "text": "Test quoting and commas", "state": "done", "started": "2026-11-20T11:55:00-05:00", "ended": "2026-11-20T12:10:00-05:00" },
+    { "text": "Stream exports over 10k rows", "state": "active", "started": "2026-11-20T12:10:00-05:00" },
+    { "text": "Pick the date format", "state": "waiting", "note": "your pick in the deck", "started": "2026-11-20T12:25:00-05:00" },
+    { "text": "CI on the export PR", "state": "external", "note": "GitHub Actions", "link": "https://github.com/acme/shop/pull/42/checks", "started": "2026-11-20T12:32:00-05:00" },
+    { "text": "Update the API docs", "state": "todo" }
+  ],
+  "pending": [],
+  "prs": [
+    { "repo": "acme/shop", "n": 42, "title": "feat: CSV export for orders", "url": "https://github.com/acme/shop/pull/42", "state": "open", "ci": "pending", "review": "pending" },
+    { "repo": "acme/shop", "n": 39, "title": "fix: round order totals once", "url": "https://github.com/acme/shop/pull/39", "state": "merged", "ci": "pass", "review": "approved" }
+  ],
+  "running": [
+    { "name": "web", "url": "http://127.0.0.1:4173/", "cmd": "pnpm dev", "login": "demo user in .env.example" },
+    { "name": "api", "url": "http://127.0.0.1:4174/", "cmd": "pnpm api" }
+  ]
+}

@@ -1,0 +1,4 @@
+{"ts":"2026-11-20T12:12:00-05:00","event":"start","id":"w1","name":"repo-worker: stream exports","expect_min":40}
+{"ts":"2026-11-20T12:20:00-05:00","event":"start","id":"e1","name":"Explore: CSV edge cases"}
+{"ts":"2026-11-20T12:28:00-05:00","event":"stop","id":"e1","ok":true}
+{"ts":"2026-11-20T12:30:00-05:00","event":"start","id":"r1","name":"reviewer: export diff"}

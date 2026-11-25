@@ -1,0 +1,5 @@
+{"ts":"2026-11-20T11:20:00-05:00","text":"Spec approved","kind":"note"}
+{"ts":"2026-11-20T11:54:00-05:00","text":"4c1e9a2 feat: CSV writer for orders","kind":"commit"}
+{"ts":"2026-11-20T12:09:00-05:00","text":"b07d3f1 test: quoting, commas and newlines","kind":"commit"}
+{"ts":"2026-11-20T12:25:00-05:00","text":"https://example.com/decks/export-format","kind":"link"}
+{"ts":"2026-11-20T12:31:00-05:00","text":"e52a8c0 feat: stream rows in pages of 1000","kind":"commit"}
