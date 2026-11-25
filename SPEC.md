@@ -1,13 +1,13 @@
 # AI Board — spec
 
-A terminal viewer for Claude Code session boards, with a decision panel. Claude and hooks write small files into one directory per session; `ai-board` watches that directory and renders it. The viewer only reads, except in the decision panel, where Mario answers a deck and the viewer writes the draft and the answers under `answers/` (see Decision decks). This file is the contract between the writers and the viewer.
+A terminal viewer for Claude Code session boards, with a decision panel. Claude and hooks write small files into one directory per session; `ai-board` watches that directory and renders it. The viewer only reads, except in the decision panel, where you answer a deck and the viewer writes the draft and the answers under `answers/` (see Decision decks). This file is the contract between the writers and the viewer.
 
 ## Directory
 
 ```
 ~/.claude/boards/<session-id>/
   board.json            Claude (whole file, or `ai-board step`): title, status, steps, pending
-  status.json           Stop hook (lib/meta/stop-guard.py): latest status, overrides board.json status when newer
+  status.json           a Stop hook of your own: latest status, overrides board.json status when newer
   agents.jsonl          hooks + `ai-board agent`: running subagents (append-only)
   log.jsonl             hooks + `ai-board log`: events (append-only)
   sections/
@@ -18,7 +18,7 @@ A terminal viewer for Claude Code session boards, with a decision panel. Claude 
   decisions/
     <id>.json           Claude: a decision deck (the web deck's JSON)
   answers/
-    <id>-r<round>.txt         the viewer: the answers Mario sent for that round
+    <id>-r<round>.txt         the viewer: the answers you sent for that round
     <id>-r<round>.draft.json  the viewer: the answers being drafted, saved on every change
     <id>-r<round>.ack         Claude: a one-line reply to the answers
 ```
@@ -31,27 +31,27 @@ Every file is optional. A missing directory renders a "⏳ waiting for <path>" s
 
 ```json
 {
-  "title": "Limpieza de disco",
-  "status": { "state": "working", "text": "Clasificando hallazgos" },
+  "title": "CSV export for orders",
+  "status": { "state": "working", "text": "Writing the export" },
   "steps": [
-    { "text": "Leer guías de deck y board", "state": "done", "started": "2026-10-26T11:05:00-05:00", "ended": "2026-10-26T11:10:00-05:00" },
-    { "text": "Clasificar candidatos con riesgo", "state": "active", "started": "2026-10-26T11:35:00-05:00" },
-    { "text": "Construir decision deck", "state": "waiting", "note": "tu OK a la lista" },
-    { "text": "Publicar artefacto", "state": "todo" }
+    { "text": "Read the orders API", "state": "done", "started": "2026-10-26T11:05:00-05:00", "ended": "2026-10-26T11:10:00-05:00" },
+    { "text": "Add the CSV writer", "state": "active", "started": "2026-10-26T11:35:00-05:00" },
+    { "text": "Pick the date format", "state": "waiting", "note": "your pick in the deck" },
+    { "text": "Update the API docs", "state": "todo" }
   ],
-  "pending": [ { "text": "Aprobar el deck", "link": "https://claude.ai/..." } ],
-  "prs": [ { "repo": "kazemu/board", "n": 12, "title": "feat(tui): PRs section", "url": "https://github.com/kazemu/board/pull/12", "state": "open", "ci": "pending", "review": "pending" } ],
-  "running": [ { "name": "web", "url": "http://localhost:3000", "cmd": "pnpm dev", "login": "user in 1Password: Board dev" } ]
+  "pending": [ { "text": "Review the export spec", "link": "https://example.com/export-spec" } ],
+  "prs": [ { "repo": "acme/shop", "n": 42, "title": "feat: CSV export for orders", "url": "https://github.com/acme/shop/pull/42", "state": "open", "ci": "pending", "review": "pending" } ],
+  "running": [ { "name": "web", "url": "http://localhost:3000", "cmd": "pnpm dev", "login": "demo user in .env.example" } ]
 }
 ```
 
 - `status.json`, written only by the Stop hook, has the same shape as `status` plus a timestamp: `{"state":"working","text":"Awaiting CI","ts":"<RFC3339>"}`. The viewer shows whichever is newer: status.json when its `ts` is after board.json's file mtime, otherwise board.json `status`. A missing or broken status.json falls back to board.json `status`.
-- `status.state`: `done` 🟢, `working` 🔵, `waiting` 🟡 (on Mario), `blocked` 🔴. Same meaning as the response status line. `status.text` is 1–4 words.
-- `steps[].state`: `done` ✅, `active` ▶️, `waiting` (on Mario) 📥, `external` (CI, an approval, a deploy) ⏳, `failed` ❌, `todo` ⚪, `skipped` (shown like done, struck through). `note` is one clause shown inline after the step text (what it waits on, why it failed, why skipped). `link` is optional, for `external` steps: the CI run, PR or page being awaited, opened from the header slot.
+- `status.state`: `done` 🟢, `working` 🔵, `waiting` 🟡 (on you), `blocked` 🔴. `status.text` is 1–4 words.
+- `steps[].state`: `done` ✅, `active` ▶️, `waiting` (on you) 📥, `external` (CI, an approval, a deploy) ⏳, `failed` ❌, `todo` ⚪, `skipped` (shown like done, struck through). `note` is one clause shown inline after the step text (what it waits on, why it failed, why skipped). `link` is optional, for `external` steps: the CI run, PR or page being awaited, opened from the header slot.
 - `started` / `ended` are RFC 3339. The viewer derives times from them; writers never compute durations.
 - All steps stay in the list for the whole task. The viewer collapses finished steps into one summary line when there are more than three (see Layout); writers never remove them.
 - `prs` (optional): the pull requests the task tracks, one per `repo` + `n`. `state` is `open`, `draft`, `merged` or `closed`; `ci` is `pass`, `fail`, `pending` or empty; `review` is `approved`, `changes` (changes requested), `pending` or empty; `title` and `url` are optional. `ai-board pr set|rm` edits them (see CLI). They render in their own block (see Layout) and do not change the header counts: a failing CI is the PR's own state, already visible in its row, and the step that waits on it is the `external` step the header counts.
-- `running` (optional): local services the task started, one per `name`. `url` is optional (the viewer probes it when it is http or https), `cmd` is how it was started (for writers restarting it; not rendered) and `login` is a free-text hint at where the credentials live (`user in 1Password: Foo`). `login` must never contain a secret (no password, token or key): the board is plain files and is shown on screen. `ai-board run set|rm` edits them.
+- `running` (optional): local services the task started, one per `name`. `url` is optional (the viewer probes it when it is http or https), `cmd` is how it was started (for writers restarting it; not rendered) and `login` is a free-text hint at where the credentials live (`demo user in .env.example`). `login` must never contain a secret (no password, token or key): the board is plain files and is shown on screen. `ai-board run set|rm` edits them.
 
 ## agents.jsonl
 
@@ -83,9 +83,9 @@ Rendered with Glamour. Mermaid is not rendered; it shows as a code block. Inline
 ### `*.chart.json`
 
 ```json
-{ "type": "bar", "unit": "G", "series": [ { "label": "Docker volúmenes", "value": 384 } ] }
+{ "type": "bar", "unit": "s", "series": [ { "label": "10k rows", "value": 3.1 } ] }
 { "type": "sparkline", "values": [3, 5, 2, 8] }
-{ "type": "gauge", "label": "Disco", "value": 1.6, "max": 1.9, "unit": "T" }
+{ "type": "gauge", "label": "Disk", "value": 1.6, "max": 1.9, "unit": "T" }
 ```
 
 Horizontal bars for `bar` (labels left, value right, bars scaled to the series max). `sparkline` is one line. `gauge` is one labeled bar with `value/max`.
@@ -94,8 +94,8 @@ Horizontal bars for `bar` (labels left, value right, bars scaled to the series m
 
 ```json
 {
-  "columns": [ { "name": "Zona" }, { "name": "Recuperable", "align": "right", "bar": true } ],
-  "rows": [ [ "Docker volúmenes huérfanos", { "v": 384, "text": "384G" } ], [ "556 worktrees", "por medir" ] ]
+  "columns": [ { "name": "Export" }, { "name": "Time", "align": "right", "bar": true } ],
+  "rows": [ [ "10k rows", { "v": 3.1, "text": "3.1 s" } ], [ "1M rows", "not measured" ] ]
 }
 ```
 
@@ -111,10 +111,10 @@ Verification results. `detail` is optional. When every check passes the section 
 
 ## Decision decks
 
-A deck is `decisions/<id>.json` in the schema of the web decision deck (`~/.claude/skills/lib/artifacts/decision-deck.md`, Schema), read unchanged, so one JSON file serves both: `id`, `title`, `project`, `round` (1 when missing), `intro`, and `items[]` with `n`, `title`, `summary`, `details`, `kind` (`choice`, the default, or `confirm`), `options[]` (`key`, `title`, `summary`, `pros`, `cons`, `effort`, `risk`), `recommended`, `why` and `decided`. The panel also reads an optional `url` on the deck and on an item, opened with `o`. `details` is HTML shown as plain text (block ends become line breaks, list items `• `, entities decoded); the mockups (`before`, `mock`) are never rendered. A confirm item has the options `A` Approve, `B` Reject and `C` Defer, as in the web deck. Items with `decided` are listed under "Decided in earlier rounds" and are not asked again. A deck whose `id` is not letters, digits, `.`, `_` and `-` is a parse error. Claude removes the deck file once the deck is closed; a new round is the same file with `round` + 1.
+A deck is `decisions/<id>.json` in the schema of the web decision deck (a separate HTML page, not part of this repository, that reads the same file and is what "the web deck" means below), read unchanged, so one JSON file serves both: `id`, `title`, `project`, `round` (1 when missing), `intro`, and `items[]` with `n`, `title`, `summary`, `details`, `kind` (`choice`, the default, or `confirm`), `options[]` (`key`, `title`, `summary`, `pros`, `cons`, `effort`, `risk`), `recommended`, `why` and `decided`. The panel also reads an optional `url` on the deck and on an item, opened with `o`. `details` is HTML shown as plain text (block ends become line breaks, list items `• `, entities decoded); the mockups (`before`, `mock`) are never rendered. A confirm item has the options `A` Approve, `B` Reject and `C` Defer, as in the web deck. Items with `decided` are listed under "Decided in earlier rounds" and are not asked again. A deck whose `id` is not letters, digits, `.`, `_` and `-` is a parse error. Claude removes the deck file once the deck is closed; a new round is the same file with `round` + 1.
 
 - **Draft**: `answers/<id>-r<round>.draft.json`, `{"choices": {"<n>": "<KEY>" | "other"}, "other": {"<n>": "…"}, "notes": {"<n>": "…"}, "optNotes": {"<n>": {"<KEY>": "…"}}, "general": "…", "extra": {"<n>": [<option>, …]}}`: the web deck's state without its `asks`. `other` holds the Other texts, `optNotes` the notes on options, `extra` the options generated with Suggest (the option schema plus `"generated": true`); the three are omitted when empty, so a draft without them is read as before. The viewer replaces it atomically on every pick, clear and note, and loads it when the deck opens, so a draft survives quitting. A missing or broken draft is an empty one. Drafts are per round, so a new round starts clean.
-- **Answers**: Send writes `answers/<id>-r<round>.txt` atomically (temp file, rename): the text the web deck's `serialize()` produces for the same picks and notes, byte for byte, with no trailing newline (the grammar is decision-deck.md, Read the answers, step 2: Other, item notes, notes on options and generated options included). The web deck's "Ask Claude" questions are not offered here: `serialize()` leaves them out of the text, so they carry nothing to the session. When the round was already sent with other answers, line 2 is `Re-sent: replaces the answers sent <ISO>`, where `<ISO>` is the earlier file's mtime in UTC as JavaScript's `toISOString()` writes it (`2026-11-24T15:00:00.000Z`); sending the same answers again leaves the file untouched. Only the latest answers are kept. The same text goes to the clipboard: OSC 52 to the terminal, and `wl-copy` when it is on PATH.
+- **Answers**: Send writes `answers/<id>-r<round>.txt` atomically (temp file, rename): the text the web deck's `serialize()` produces for the same picks and notes, byte for byte, with no trailing newline (the grammar is the one `Serialize` in `internal/board/deck.go` writes, starting `DECISIONS · <id> · round <n>`: Other, item notes, notes on options and generated options included). The web deck's "Ask Claude" questions are not offered here: `serialize()` leaves them out of the text, so they carry nothing to the session. When the round was already sent with other answers, line 2 is `Re-sent: replaces the answers sent <ISO>`, where `<ISO>` is the earlier file's mtime in UTC as JavaScript's `toISOString()` writes it (`2026-11-24T15:00:00.000Z`); sending the same answers again leaves the file untouched. Only the latest answers are kept. The same text goes to the clipboard: OSC 52 to the terminal, and `wl-copy` when it is on PATH.
 - **Ack**: Claude may write `answers/<id>-r<round>.ack`, one line (later lines are ignored), after reading the answers: what happens next (`action plan coming`). The deck view and the header slot show it as `Claude: <ack>`.
 - Sessions learn of a Send by running `ai-board answers wait <id>` in the background (see CLI).
 
@@ -174,7 +174,7 @@ The six header lines stay fixed; everything below scrolls. Times refresh every s
 
 Keys (single keys, no Shift except `shift+tab`): `j`/`k`/arrows and `pgup`/`pgdn` scroll, `tab`/`shift+tab` (active only when the body scrolls) jump between Agents (when in the body), Plan, PRs, Running, each Details subsection and Log, `l` toggles a full-screen log, `h` toggles the full-screen help, `d` expands or collapses finished steps, `a` lists every agent in the body, `c` lists every check or only the failing ones, `g` shows or hides the legend line, `w` toggles the narrow footer, `D` opens the deck view (keys above), `q` quits.
 
-The viewer sets the terminal title to `board: <session-id>` (kept from before the `ai-board` rename, so the opener finds a pane of either binary); the opener script finds an existing pane by that title.
+The viewer sets the terminal title to `board: <session-id>` (kept from before the `ai-board` rename, so a pane of either binary carries it): your own opener, a script that opens or focuses the board pane, can find an existing pane by that title.
 
 ## CLI
 
