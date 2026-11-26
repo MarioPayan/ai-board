@@ -24,6 +24,9 @@ const usage = `usage:
   ai-board agent stop <id> [--failed]
   ai-board step <index|text-prefix> <state> [--note T] [--link URL] [--dir D]
   ai-board step add <text> [--state S] [--dir D]
+  ai-board status <done|working|waiting|blocked> <text> [--dir D]
+  ai-board pending add <text> [--link URL] [--dir D]
+  ai-board pending rm <index|text> [--dir D]
   ai-board check [--hours N] [--dir D]           list stuck steps
   ai-board archive [--days N] [--dry-run]        move idle and old-format boards to .archive
   ai-board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]
@@ -49,6 +52,12 @@ func main() {
 			return
 		case "step":
 			exit(cmdStep(os.Args[2:]))
+			return
+		case "status":
+			exit(cmdStatus(os.Args[2:]))
+			return
+		case "pending":
+			exit(cmdPending(os.Args[2:]))
 			return
 		case "pr":
 			exit(cmdPR(os.Args[2:]))
@@ -314,6 +323,49 @@ func cmdStep(args []string) error {
 		return err
 	}
 	return board.SetStep(dir, args[0], args[1], ptrIf(hasNote, note), ptrIf(hasLink, link), time.Now())
+}
+
+func cmdStatus(args []string) error {
+	args, dirFlag, _, err := takeFlag(args, "dir", true)
+	if err != nil {
+		return err
+	}
+	if len(args) < 2 {
+		return errors.New("usage: ai-board status <done|working|waiting|blocked> <text> [--dir D]")
+	}
+	text := strings.TrimSpace(strings.Join(args[1:], " "))
+	dir, err := boardDir(dirFlag)
+	if err != nil {
+		return err
+	}
+	return board.SetStatus(dir, args[0], text)
+}
+
+func cmdPending(args []string) error {
+	const use = "usage: ai-board pending add <text> [--link URL] [--dir D]\n       ai-board pending rm <index|text> [--dir D]"
+	args, fields, err := takeFields(args, "dir", "link")
+	if err != nil {
+		return err
+	}
+	if len(args) < 2 || (args[0] != "add" && args[0] != "rm") {
+		return errors.New(use)
+	}
+	_, hasLink := fields["link"]
+	if args[0] == "rm" && hasLink {
+		return errors.New(use)
+	}
+	text := strings.TrimSpace(strings.Join(args[1:], " "))
+	if text == "" {
+		return errors.New(use)
+	}
+	dir, err := boardDir(fields["dir"])
+	if err != nil {
+		return err
+	}
+	if args[0] == "rm" {
+		return board.RmPending(dir, text)
+	}
+	return board.AddPending(dir, text, fields["link"])
 }
 
 func ptrIf(ok bool, s string) *string {

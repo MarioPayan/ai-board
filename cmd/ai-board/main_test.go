@@ -206,6 +206,65 @@ func TestStepCmd(t *testing.T) {
 	}
 }
 
+func TestStatusCmd(t *testing.T) {
+	dir := t.TempDir()
+	if err := cmdStatus([]string{"waiting", "Your", "pick", "--dir", dir}); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "board.json"))
+	for _, want := range []string{`"state": "waiting"`, `"text": "Your pick"`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("board.json misses %s:\n%s", want, b)
+		}
+	}
+	for _, bad := range [][]string{
+		{"waiting", "--dir", dir},       // no text
+		{"finished", "x", "--dir", dir}, // bad state
+		{"--dir", dir},
+	} {
+		if err := cmdStatus(bad); err == nil {
+			t.Errorf("%v should fail", bad)
+		}
+	}
+}
+
+func TestPendingCmd(t *testing.T) {
+	dir := t.TempDir()
+	for _, args := range [][]string{
+		{"add", "Answer", "the", "deck", "--dir", dir},
+		{"add", "Approve", "--link", "https://ci", "--dir", dir},
+		{"add", "Gone", "--dir", dir},
+		{"rm", "3", "--dir", dir},
+		{"add", "Also gone", "--dir", dir},
+		{"rm", "Also", "gone", "--dir", dir},
+	} {
+		if err := cmdPending(args); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, "board.json"))
+	got := string(b)
+	for _, want := range []string{`"text": "Answer the deck"`, `"text": "Approve"`, `"link": "https://ci"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("board.json misses %s:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "gone") || strings.Contains(got, "Gone") {
+		t.Errorf("rm left an item:\n%s", got)
+	}
+	for _, bad := range [][]string{
+		{"add", "--dir", dir},
+		{"rm", "nope", "--dir", dir},
+		{"rm", "9", "--dir", dir},
+		{"rm", "1", "--link", "x", "--dir", dir},
+		{"list", "x", "--dir", dir},
+	} {
+		if err := cmdPending(bad); err == nil {
+			t.Errorf("%v should fail", bad)
+		}
+	}
+}
+
 // answers wait blocks until the deck's answers file for its round exists,
 // then prints it.
 func TestAnswersWait(t *testing.T) {

@@ -105,3 +105,66 @@ func SetRunning(dir, name string, fields map[string]string) error {
 func RmRunning(dir, name string) error {
 	return remove(dir, "running", matchRunning(name), "running entry "+quote(name))
 }
+
+// StatusStates are the allowed status.state values.
+var StatusStates = []string{"done", "working", "waiting", "blocked"}
+
+// SetStatus sets status.state and status.text, keeping any other field of
+// status.
+func SetStatus(dir, state, text string) error {
+	if err := checkEnum("state", state, StatusStates); err != nil {
+		return err
+	}
+	if text == "" {
+		return errors.New("status text is empty")
+	}
+	return EditBoard(dir, func(b obj) error {
+		st := obj{}
+		if raw, ok := b["status"]; ok && string(raw) != "null" {
+			if err := json.Unmarshal(raw, &st); err != nil {
+				return fmt.Errorf("board.json status: %w", err)
+			}
+		}
+		set(st, "state", state)
+		set(st, "text", text)
+		set(b, "status", st)
+		return nil
+	})
+}
+
+// AddPending appends a pending item; an empty link is left out.
+func AddPending(dir, text, link string) error {
+	if text == "" {
+		return errors.New("pending text is empty")
+	}
+	return EditBoard(dir, func(b obj) error {
+		l, err := list(b, "pending")
+		if err != nil {
+			return err
+		}
+		o := obj{}
+		set(o, "text", text)
+		setOrDelete(o, "link", link)
+		setList(b, "pending", append(l, o))
+		return nil
+	})
+}
+
+// RmPending removes the pending item sel names: a 1-based index, or else
+// the exact text of one or more items (all of them are removed).
+func RmPending(dir, sel string) error {
+	if n, err := strconv.Atoi(sel); err == nil {
+		return EditBoard(dir, func(b obj) error {
+			l, err := list(b, "pending")
+			if err != nil {
+				return err
+			}
+			if n < 1 || n > len(l) {
+				return fmt.Errorf("no pending item %d (%d items)", n, len(l))
+			}
+			setList(b, "pending", slices.Delete(l, n-1, n))
+			return nil
+		})
+	}
+	return remove(dir, "pending", func(o obj) bool { return str(o, "text") == sel }, "pending item "+quote(sel))
+}
