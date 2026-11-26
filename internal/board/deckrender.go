@@ -74,6 +74,9 @@ func (r *Renderer) deckCounter(f DeckFile, s DeckState, cur, width int) string {
 	r.init()
 	done, total := f.Deck.Answered(s)
 	left := r.st.bold.Render(fmt.Sprintf("Deck: %s · %d/%d", f.Title(), min(cur+1, total), total))
+	if !f.Sent {
+		left = DecisionIcon + " " + left
+	}
 	right := fmt.Sprintf("%d/%d answered", done, total)
 	if f.Sent {
 		right += " · sent"

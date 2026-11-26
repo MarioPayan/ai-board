@@ -446,7 +446,7 @@ func (r *Renderer) slots(s *Snapshot, width int, now time.Time) []string {
 	return out
 }
 
-// deckSlots are the header rows for decks: `📥 Deck: <title> · <answered>/<total>`
+// deckSlots are the header rows for decks: `🙋 Deck: <title> · <answered>/<total>`
 // while a deck's round has no answers file, then `💬 Deck: <title>` with
 // the session's ack (`Claude: <ack>`) once it wrote one.
 func (r *Renderer) deckSlots(s *Snapshot) []slot {
@@ -454,7 +454,7 @@ func (r *Renderer) deckSlots(s *Snapshot) []slot {
 	for _, d := range deckRows(s) {
 		if !d.Sent {
 			done, total := d.Deck.Answered(d.State)
-			out = append(out, slot{icon: "📥", item: fmt.Sprintf("Deck: %s · %d/%d", d.Title(), done, total), itemSt: r.st.bold})
+			out = append(out, slot{icon: DecisionIcon, item: fmt.Sprintf("Deck: %s · %d/%d", d.Title(), done, total), itemSt: r.st.bold})
 		} else {
 			out = append(out, slot{icon: "💬", item: "Deck: " + d.Title(), detail: "Claude: " + d.Ack, detailSt: r.st.noteExternal})
 		}

@@ -148,6 +148,71 @@ func (m *model) pressD() tea.Cmd {
 	return tea.EnableMouseCellMotion
 }
 
+// DecisionIcon marks a deck waiting for answers: in the header slot, the
+// deck counter and the terminal title, so it is found at a glance.
+const DecisionIcon = "🙋"
+
+func roundKey(f DeckFile) string { return fmt.Sprintf("%s-r%d", f.Deck.ID, f.Deck.Round) }
+
+// unsent are the parsed decks whose round has no answers file.
+func unsent(s *Snapshot) []DeckFile {
+	var out []DeckFile
+	for _, d := range validDecks(s) {
+		if !d.Sent {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// dismiss remembers every round waiting now as closed by hand, so syncDeck
+// leaves the board on screen until a new deck or round arrives.
+func (m *model) dismiss() {
+	if m.dismissed == nil {
+		m.dismissed = map[string]bool{}
+	}
+	for _, d := range unsent(m.snap) {
+		m.dismissed[roundKey(d)] = true
+	}
+}
+
+// syncDeck keeps the deck view open while a deck waits for answers: it opens
+// the first one not closed by hand, moves on when the open one is sent or
+// removed, closes when none is left, and keeps the terminal title marked.
+func (m *model) syncDeck() tea.Cmd {
+	waiting := unsent(m.snap)
+	var cmds []tea.Cmd
+	title := "board: " + m.name
+	if len(waiting) > 0 {
+		title = DecisionIcon + " " + title
+	}
+	if title != m.title {
+		m.title = title
+		cmds = append(cmds, tea.SetWindowTitle(title))
+	}
+	if m.dv != nil {
+		for _, d := range waiting {
+			if d.Name == m.dv.file.Name {
+				return tea.Batch(cmds...)
+			}
+		}
+	}
+	var next *DeckFile
+	for i, d := range waiting {
+		if !m.dismissed[roundKey(d)] {
+			next = &waiting[i]
+			break
+		}
+	}
+	switch {
+	case next != nil && !m.picking:
+		cmds = append(cmds, m.openDeck(*next))
+	case m.dv != nil:
+		cmds = append(cmds, m.closeDeck())
+	}
+	return tea.Batch(cmds...)
+}
+
 // refreshDeck takes the reloaded deck file into the open view. A new round
 // starts from that round's draft.
 func (m *model) refreshDeck() {
@@ -555,6 +620,7 @@ func (m *model) deckKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "q":
 		return m, tea.Quit
 	case "esc", "D":
+		m.dismiss()
 		return m, m.closeDeck()
 	case "enter", "tab":
 		m.next()
@@ -730,6 +796,7 @@ func (m *model) pickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "q":
 		return m, tea.Quit
 	case "esc", "D":
+		m.dismiss()
 		return m, m.closeDeck()
 	case "j", "down", "tab":
 		m.pickSel = min(m.pickSel+1, len(decks)-1)

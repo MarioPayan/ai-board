@@ -97,7 +97,7 @@ func (r *Renderer) RenderHelp(width int) string {
 	item("✅❌", "up or down at the last probe (every 30 s); ? not probed yet")
 
 	sub("Decks")
-	item("📥", "Deck: title · answered/total: a deck waiting for your answers (D opens it)")
+	item(DecisionIcon, "Deck: title · answered/total: a deck waiting for your answers (it opens by itself; D after esc)")
 	item("💬", "Deck: title · Claude: the session's reply to the answers you sent")
 	item("● ○", "picked, not picked; ★ recommended, with why: the reason")
 	item("✓ 1A", "the item's pick (✓ 1 Other for Other); open when it has none")

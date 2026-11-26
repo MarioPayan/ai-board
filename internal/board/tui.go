@@ -40,6 +40,9 @@ type model struct {
 	picking bool      // D with several decks: the deck list is open
 	pickSel int
 
+	dismissed map[string]bool // deck rounds closed by hand: not opened again by themselves
+	title     string          // the terminal title last set
+
 	watcher *fsnotify.Watcher
 	watched map[string]bool
 	events  chan struct{}
@@ -128,7 +131,7 @@ func (m *model) probe() tea.Cmd {
 }
 
 func (m *model) Init() tea.Cmd {
-	return tea.Batch(tea.SetWindowTitle("board: "+m.name), tick(), m.waitFile(), m.probe())
+	return tea.Batch(tick(), m.waitFile(), m.probe(), m.syncDeck())
 }
 
 func (m *model) layout() {
@@ -181,7 +184,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reload()
 		m.refreshDeck()
 		m.layout()
-		return m, m.waitFile()
+		return m, tea.Batch(m.waitFile(), m.syncDeck())
 	case probeMsg:
 		m.r.Up = msg
 		m.layout()

@@ -107,7 +107,7 @@ func TestDeckStepperLayout(t *testing.T) {
 	if len(rows) != 30 || !m.dv.split || m.vp.Height != 7 {
 		t.Fatalf("split view: %d rows, split %v, board %d rows:\n%s", len(rows), m.dv.split, m.vp.Height, strings.Join(rows, "\n"))
 	}
-	if !strings.HasPrefix(rows[6], "📋 Plan") || !strings.HasPrefix(rows[14], "Deck: Panel build choices · 1/3") || rows[13] != strings.Repeat("─", 80) {
+	if !strings.HasPrefix(rows[6], "📋 Plan") || !strings.HasPrefix(rows[14], "🙋 Deck: Panel build choices · 1/3") || rows[13] != strings.Repeat("─", 80) {
 		t.Errorf("want the plan on row 6, a rule on 13, the counter on 14:\n%s", strings.Join(rows, "\n"))
 	}
 	if m.dv.navY != 27 || !strings.HasPrefix(rows[27], "[‹ Back]") || !strings.HasSuffix(rows[27], "[Next ›]") {
@@ -121,7 +121,7 @@ func TestDeckStepperLayout(t *testing.T) {
 
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24}) // a body of 16 rows
 	rows = screen(m)
-	if len(rows) != 24 || m.dv.split || !strings.HasPrefix(rows[6], "Deck: Panel build choices · 1/3") || rowWith(m, "📋 Plan") >= 0 {
+	if len(rows) != 24 || m.dv.split || !strings.HasPrefix(rows[6], "🙋 Deck: Panel build choices · 1/3") || rowWith(m, "📋 Plan") >= 0 {
 		t.Errorf("a short pane gives the deck the whole body:\n%s", strings.Join(rows, "\n"))
 	}
 }

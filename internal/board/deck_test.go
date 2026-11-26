@@ -333,3 +333,42 @@ func TestDeckAckShown(t *testing.T) {
 		t.Errorf("the ack should show in the deck view:\n%s", v)
 	}
 }
+
+// The deck view follows the decisions: it opens by itself on a deck waiting
+// for answers, stays closed once closed by hand until a new round, closes
+// once the round is sent, and the terminal title carries the icon meanwhile.
+func TestSyncDeckFollowsDecisions(t *testing.T) {
+	m, _ := deckModel(t)
+	m.syncDeck()
+	if m.dv == nil || m.dv.file.Deck.Title != "Panel build choices" || !strings.HasPrefix(m.title, DecisionIcon) {
+		t.Fatalf("a waiting deck should open by itself and mark the title %q", m.title)
+	}
+	deckPress(m, "esc")
+	m.syncDeck()
+	if m.dv != nil {
+		t.Fatal("a deck closed by hand must not reopen on the next reload")
+	}
+	deckPress(m, "D", "enter") // D still opens it, through the picker with two decks
+	if m.dv == nil {
+		t.Fatal("D should open the deck again")
+	}
+	f := m.dv.file
+	if err := os.WriteFile(AnswerBase(m.dir, f.Deck.ID, f.Deck.Round)+".txt", []byte("DECISIONS"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m.reload()
+	m.syncDeck()
+	if m.dv != nil || strings.HasPrefix(m.title, DecisionIcon) {
+		t.Fatalf("with no deck waiting the view should close and the title lose the icon: %q", m.title)
+	}
+	p := filepath.Join(m.dir, "decisions", f.Name)
+	b, _ := os.ReadFile(p)
+	if err := os.WriteFile(p, []byte(strings.Replace(string(b), `"round": 1`, `"round": 2`, 1)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m.reload()
+	m.syncDeck()
+	if m.dv == nil || m.dv.file.Deck.Round != 2 {
+		t.Fatal("a new round should open by itself even after a manual close")
+	}
+}
