@@ -188,6 +188,8 @@ func deckPress(m *model, keys ...string) {
 			msg = tea.KeyMsg{Type: tea.KeyBackspace}
 		case "down":
 			msg = tea.KeyMsg{Type: tea.KeyDown}
+		case "right":
+			msg = tea.KeyMsg{Type: tea.KeyRight}
 		}
 		m.Update(msg)
 	}
@@ -370,5 +372,29 @@ func TestSyncDeckFollowsDecisions(t *testing.T) {
 	m.syncDeck()
 	if m.dv == nil || m.dv.file.Deck.Round != 2 {
 		t.Fatal("a new round should open by itself even after a manual close")
+	}
+}
+
+// Keys sent in one burst arrive as one multi-rune KeyMsg ("aO"); each rune
+// acts as its own key, and the runes after a key that opens a text box are
+// typed into it.
+func TestDeckKeyBurst(t *testing.T) {
+	m, _ := deckModel(t)
+	m.openDeck(m.snap.Decks[0])
+	deckPress(m, "bn") // pick B on item 1, then open its note
+	if m.dv.state.Choices[1] != "B" || m.dv.editing != 0 || m.dv.editWhat != editNote {
+		t.Fatalf(`"bn" should pick B and open the note: %#v editing %d`, m.dv.state.Choices, m.dv.editing)
+	}
+	deckPress(m, "esc", "Oab") // Other on item 1, then "ab" into its box
+	if m.dv.state.Choices[1] != "other" || m.dv.editWhat != editOther || m.dv.ta.Value() != "ab" {
+		t.Fatalf(`"Oab" should pick Other and type "ab": %#v %q`, m.dv.state.Choices, m.dv.ta.Value())
+	}
+	deckPress(m, "cd") // a burst into an open box is text, not keys
+	if m.dv.ta.Value() != "abcd" || m.dv.state.Choices[1] != "other" {
+		t.Errorf(`"cd" in the box: %q, choices %#v`, m.dv.ta.Value(), m.dv.state.Choices)
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("xq"), Paste: true}) // a paste stays whole
+	if m.dv.ta.Value() != "abcdxq" {
+		t.Errorf("paste into the box: %q", m.dv.ta.Value())
 	}
 }

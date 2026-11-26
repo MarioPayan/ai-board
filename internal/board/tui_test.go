@@ -75,3 +75,17 @@ func TestModelAgentsToggle(t *testing.T) {
 		t.Errorf("a again should take the list out of the body:\n%s", ansi.Strip(m.View()))
 	}
 }
+
+// The board view replays a multi-rune burst one key at a time too.
+func TestBoardKeyBurst(t *testing.T) {
+	m := &model{r: &Renderer{}, snap: Load(filepath.Join("..", "..", "testdata", "done-heavy")), vp: viewport.New(120, 10)}
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 12})
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("dg")})
+	if !m.r.Expand || !m.r.Legend {
+		t.Errorf(`"dg" should expand finished steps and show the legend: expand %v legend %v`, m.r.Expand, m.r.Legend)
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("dg"), Paste: true}) // a paste is not keys
+	if !m.r.Expand || !m.r.Legend {
+		t.Errorf("a paste toggled keys: expand %v legend %v", m.r.Expand, m.r.Legend)
+	}
+}

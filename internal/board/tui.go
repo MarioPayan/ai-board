@@ -203,6 +203,18 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.pickerMouse(msg)
 		}
 	case tea.KeyMsg:
+		// keys sent in one burst (tmux send-keys, key repeat) arrive as one
+		// multi-rune message such as "jO", which matches no key: replay it
+		// one rune at a time. A paste, and anything typed into an open text
+		// box, stays whole.
+		if msg.Type == tea.KeyRunes && len(msg.Runes) > 1 && !msg.Paste && !msg.Alt && (m.dv == nil || m.dv.editing < 0) {
+			var cmds []tea.Cmd
+			for _, r := range msg.Runes {
+				_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+				cmds = append(cmds, cmd)
+			}
+			return m, tea.Batch(cmds...)
+		}
 		switch {
 		case m.dv != nil:
 			return m.deckKey(msg)
