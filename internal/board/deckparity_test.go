@@ -17,7 +17,11 @@ import (
 // produced from, by running serialize(), nextKey() and the Suggest prompt
 // (context() plus the instruction) of
 // ~/.claude/skills/lib/artifacts/decision-deck.html in node on the same deck
-// and state.
+// and state. TestParityWithTemplate (decktemplate_test.go) reruns serialize()
+// and nextKey() from the template on every test run when node and the
+// template are present, and fails when parityText goes stale. The Suggest
+// prompt is built inside the template's boot(), so parityPrompt is still
+// checked only against the hard-coded string.
 var parityDeck = Deck{ID: "p", Title: "Parity deck", Project: "ai-board", Round: 3, Items: []DeckItem{
 	{N: 1, Title: "Other with text", Options: []DeckOption{{Key: "A", Title: "Alpha"}, {Key: "B", Title: "Beta"}}, Recommended: "A"},
 	{N: 2, Title: "Other empty", Options: []DeckOption{{Key: "A", Title: "Alpha"}}},

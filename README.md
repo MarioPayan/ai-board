@@ -76,6 +76,8 @@ autosaves, so quitting loses nothing.
 
 ```sh
 go test ./...                     # golden renders of testdata/* plus unit tests
+AI_BOARD_DECK_TEMPLATE=path/to/decision-deck.html go test ./internal/board -run Parity
+                                  # check Serialize against the web deck in node (default: the installed copy; skips without node or template)
 go test ./cmd/ai-board -update    # regenerate testdata/*.golden
 python3 tools/board-svg.py        # regenerate docs/images/*.svg from the live viewer
 ```
