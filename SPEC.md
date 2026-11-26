@@ -6,7 +6,7 @@ A terminal viewer for Claude Code session boards, with a decision panel. Claude 
 
 ```
 ~/.claude/boards/<session-id>/
-  board.json            Claude (whole file, or `ai-board step`): title, status, steps, pending
+  board.json            Claude (whole file, or `ai-board step|status|pending|pr|run`): title, status, steps, pending
   status.json           a Stop hook of your own: latest status, overrides board.json status when newer
   agents.jsonl          hooks + `ai-board agent`: running subagents (append-only)
   log.jsonl             hooks + `ai-board log`: events (append-only)
@@ -197,6 +197,9 @@ ai-board agent start <id> <name> [--expect MIN]
 ai-board agent stop <id> [--failed]
 ai-board step <index|text-prefix> <state> [--note TEXT] [--link URL] [--dir D]
 ai-board step add <text> [--state S] [--dir D]
+ai-board status <done|working|waiting|blocked> <text> [--dir D]
+ai-board pending add <text> [--link URL] [--dir D]
+ai-board pending rm <index|text> [--dir D]
 ai-board check [--hours N] [--dir D]
 ai-board archive [--days N] [--dry-run]
 ai-board pr set <repo#n> [--title T] [--url U] [--state S] [--ci C] [--review R] [--dir D]
@@ -211,6 +214,8 @@ ai-board hook                    read a Claude Code hook payload on stdin and ap
 `ai-board answers wait` polls (every second) for `answers/<deck-id>-r<round>.txt` and prints it, with one trailing newline, as soon as it exists, at once when it already does; the round is `--round`, or the round of the deck with that id in `decisions/` (read again on every poll), or 1. `--dir` is the board directory, default `$CLAUDE_CODE_SESSION_ID`'s. A session runs it in the background after writing a deck, so a Send wakes it. A deck id with a path separator is refused.
 
 `ai-board step` edits `board.json` in place of a whole-file write: it reads the file, changes one step and replaces it atomically (temp file, rename). Every field it does not change, including ones this spec does not name, is kept; keys are written in sorted order. A board.json that does not parse is left untouched and the command fails. The step is a 1-based index or a case-insensitive prefix of exactly one step's text. `<state>` is one of the `steps[].state` values. Moving into `active`, `waiting` or `external` sets `started` (RFC 3339, local offset) when it is unset; moving into `done`, `failed` or `skipped` sets `ended` (kept when the step was already in that state); moving into any unfinished state removes `ended`. `--note` / `--link` set those fields, and an empty value removes them. `ai-board step add` appends a step (`todo` unless `--state`), stamped the same way. `--dir` names the board directory; the default is `$CLAUDE_CODE_SESSION_ID`'s, created when missing.
+
+`ai-board status` sets `status.state` (one of the `status.state` values) and `status.text` (the rest of the arguments, spaces allowed, not empty); other fields of `status` are kept. `ai-board pending add` appends `{text, link}` to `pending` (`link` only with a non-empty `--link`). `ai-board pending rm` removes the item named by a 1-based index or, when the argument is not a number, by its exact text (every item with that text; an error when there is none). All three edit board.json like `ai-board step`, with the same `--dir` default.
 
 `ai-board pr set` adds the PR `repo#n` to `prs` or updates it: only the fields given change, and an empty value removes one. Values outside the `prs` enums are refused. `ai-board pr rm` removes it (an error when absent). Both edit board.json like `ai-board step`. `ai-board run set` and `ai-board run rm` do the same for the `running` entry `<name>` (the rest of the arguments, spaces allowed).
 

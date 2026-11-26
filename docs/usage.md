@@ -26,6 +26,9 @@ ai-board --once --deck <deck-id> <id-or-dir>   # one uncolored frame of the deck
 ```sh
 ai-board step <index|text-prefix> <state> [--note T] [--link URL] [--dir D]   # move a step, stamping started/ended
 ai-board step add <text> [--state S] [--dir D] # append a step
+ai-board status <done|working|waiting|blocked> <text> [--dir D]   # set the status line
+ai-board pending add <text> [--link URL] [--dir D]   # add an item waiting on you
+ai-board pending rm <index|text> [--dir D]     # remove one by 1-based index or exact text
 ai-board log [--kind commit|note|link] <text>  # append to the log
 ai-board agent start <id> <name> [--expect MIN]
 ai-board agent stop <id> [--failed]
@@ -39,7 +42,7 @@ ai-board archive [--days 7] [--dry-run]        # move idle and old-format boards
 ai-board hook                                  # Claude Code hook: reads the payload on stdin
 ```
 
-Step states are `todo`, `active`, `waiting` (on you), `external` (CI, an approval, a deploy), `done`, `failed` and `skipped`. `ai-board step` edits `board.json` in place and keeps every field it does not change. A `--login` hint says where credentials live (`user in your password manager`); it must never be a secret, because the board is plain files shown on screen.
+Step states are `todo`, `active`, `waiting` (on you), `external` (CI, an approval, a deploy), `done`, `failed` and `skipped`. `ai-board step`, `status` and `pending` edit `board.json` in place and keeps every field it does not change. A `--login` hint says where credentials live (`user in your password manager`); it must never be a secret, because the board is plain files shown on screen.
 
 ## Hooks
 

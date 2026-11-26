@@ -36,10 +36,12 @@ Needs Go 1.26 or newer; the binary lands in `$(go env GOPATH)/bin`, which must b
 
 3. **Tell Claude to keep the board.** A paragraph in your `CLAUDE.md` does it:
 
-   > Keep a board for this session with `ai-board`. Write the title and status to
-   > `~/.claude/boards/$CLAUDE_CODE_SESSION_ID/board.json`, add each step of the plan with
+   > Keep a board for this session with `ai-board`. Write the title to
+   > `~/.claude/boards/$CLAUDE_CODE_SESSION_ID/board.json` and set the status with
+   > `ai-board status <done|working|waiting|blocked> "<text>"`. Add each step of the plan with
    > `ai-board step add "<step>"` and move it with `ai-board step <n> <state>` (`active`,
-   > `waiting` on me, `external`, `done`, `failed`). Track PRs with `ai-board pr set` and
+   > `waiting` on me, `external`, `done`, `failed`). List what waits on me with
+   > `ai-board pending add "<text>" [--link URL]` and clear it with `ai-board pending rm <n>`. Track PRs with `ai-board pr set` and
    > local servers with `ai-board run set`. Formats:
    > https://github.com/MarioPayan/ai-board/blob/main/SPEC.md
 
