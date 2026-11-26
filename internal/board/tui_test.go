@@ -89,3 +89,23 @@ func TestBoardKeyBurst(t *testing.T) {
 		t.Errorf("a paste toggled keys: expand %v legend %v", m.r.Expand, m.r.Legend)
 	}
 }
+
+// A long unbracketed run of characters is pasted text, not keys: it must
+// not quit on its 'q' nor toggle anything.
+func TestBoardLongRunIgnored(t *testing.T) {
+	m := &model{r: &Renderer{}, snap: Load(filepath.Join("..", "..", "testdata", "done-heavy")), vp: viewport.New(120, 10)}
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 12})
+	paste := []rune("dg see the queue log")
+	if len(paste) != 20 {
+		t.Fatalf("paste is %d runes", len(paste))
+	}
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: paste})
+	if cmd != nil {
+		if _, quit := cmd().(tea.QuitMsg); quit {
+			t.Fatal("a 20-rune unbracketed message quit the board")
+		}
+	}
+	if m.r.Expand || m.r.Legend || m.showLog || m.showHelp {
+		t.Errorf("a 20-rune message acted as keys: expand %v legend %v log %v help %v", m.r.Expand, m.r.Legend, m.showLog, m.showHelp)
+	}
+}

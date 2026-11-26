@@ -168,6 +168,9 @@ func (m *model) legendLines() int {
 	return 0
 }
 
+// maxBurst is the longest multi-rune key message replayed as keys.
+const maxBurst = 4
+
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -205,9 +208,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// keys sent in one burst (tmux send-keys, key repeat) arrive as one
 		// multi-rune message such as "jO", which matches no key: replay it
-		// one rune at a time. A paste, and anything typed into an open text
-		// box, stays whole.
-		if msg.Type == tea.KeyRunes && len(msg.Runes) > 1 && !msg.Paste && !msg.Alt && (m.dv == nil || m.dv.editing < 0) {
+		// one rune at a time. Only short bursts: a longer message is likely
+		// pasted text (a terminal without bracketed paste), and replaying it
+		// could quit on a 'q' or pick options, so it matches no key and is
+		// ignored. A paste, and anything typed into an open text box, stays
+		// whole.
+		if msg.Type == tea.KeyRunes && len(msg.Runes) > 1 && len(msg.Runes) <= maxBurst && !msg.Paste && !msg.Alt && (m.dv == nil || m.dv.editing < 0) {
 			var cmds []tea.Cmd
 			for _, r := range msg.Runes {
 				_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})

@@ -1,6 +1,7 @@
 package board
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -396,5 +397,24 @@ func TestDeckKeyBurst(t *testing.T) {
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("xq"), Paste: true}) // a paste stays whole
 	if m.dv.ta.Value() != "abcdxq" {
 		t.Errorf("paste into the box: %q", m.dv.ta.Value())
+	}
+}
+
+// In the deck view a long unbracketed run is ignored too: no quit, no pick.
+func TestDeckLongRunIgnored(t *testing.T) {
+	m, _ := deckModel(t)
+	m.openDeck(m.snap.Decks[0])
+	before := fmt.Sprint(m.dv.state.Choices)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a quick brown fox  b")})
+	if cmd != nil {
+		if _, quit := cmd().(tea.QuitMsg); quit {
+			t.Fatal("a 20-rune unbracketed message quit the deck view")
+		}
+	}
+	if m.dv == nil {
+		t.Fatal("a 20-rune message closed the deck view")
+	}
+	if got := fmt.Sprint(m.dv.state.Choices); got != before || m.dv.editing >= 0 {
+		t.Errorf("a 20-rune message acted as keys: choices %s (before %s), editing %d", got, before, m.dv.editing)
 	}
 }
